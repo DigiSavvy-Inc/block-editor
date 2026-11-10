@@ -1,0 +1,312 @@
+/* @digisavvy/block-editor: default design tokens and base control styles.
+
+   Import once in the host app:  import '@digisavvy/block-editor/styles.css';
+
+   The tokens are declared with :where(), so they have zero specificity: set the same
+   custom property on :root (or on any ancestor of the editor) and yours wins. Override
+   light and dark separately if you support both.
+
+   Dark mode, like the app the editor came from: the OS setting (prefers-color-scheme)
+   applies unless <html data-theme="light"> forces light; <html data-theme="dark"> forces
+   dark. The editing canvas itself stays white in both modes (it previews an email). */
+
+/* ── Tokens: light (default) ───────────────────────────────────────────────────────── */
+:where(:root) {
+	/* Spacing */
+	--space-xxs: 4px;
+	--space-xs: 7px;
+	--space-s: 11px;
+	--space-m: 15px;
+	--space-l: 22px;
+	--space-xl: 29px;
+
+	/* Type: sizes, line heights, tracking */
+	--size-xs: 12px;
+	--line-xs: 15px;
+	--size-s: 14px;
+	--line-s: 19px;
+	--size-m: 15px;
+	--line-m: 23px;
+	--letter-spacing-m: 0em;
+	--tracking-l: 0.01em;
+	--font-ui: 'Inter', system-ui, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+	--weight-ui-regular: 400;
+	--weight-ui-medium: 500;
+	--weight-ui-heavy: 600;
+
+	/* Radii and edge widths (edges are drawn with box-shadow) */
+	--radius-xs: 5px;
+	--radius-s: 9px;
+	--radius-m: 13px;
+	--border-s: 1.1346516927083334px;
+	--border-l: 2.18px;
+
+	/* Motion */
+	--motion-duration: 160ms;
+	--motion-easing: cubic-bezier(0.16, 1, 0.3, 1);
+	--motion-press-distance: 1px;
+
+	/* Palette */
+	--color-1: #1a9ec4;
+	--neutral-1: #ffffff;
+	--neutral-2: #f9f9f9;
+	--neutral-3: #f0f0f0;
+	--neutral-4: #e3e3e3;
+	--neutral-5: #cfcfcf;
+	--neutral-6: #a1a1a1;
+	--neutral-7: #737373;
+	--neutral-8: #525252;
+	--neutral-9: #333333;
+	--neutral-10: #1f1f1f;
+	--error: #b34846;
+
+	/* Shadows and edges */
+	--shadow-s: 0px 0.5px 1px 0px #1f1f1f04, 0px 2px 4px 0px #1f1f1f06;
+	--shadow-m: 0px 2px 6px 0px #1f1f1f06, 0px 8px 24px 0px #1f1f1f09;
+	--color-1-transparent: color-mix(in srgb, var(--color-1) 20%, transparent);
+	--neutral-4-transparent: color-mix(in srgb, var(--neutral-4) 20%, transparent);
+	--border-default-color: var(--neutral-4-transparent);
+	--border-shadow-s: 0 0 0 var(--border-s) var(--border-default-color);
+	--focus-halo: 0 0 0 var(--border-l) color-mix(in srgb, var(--color-1-transparent) 24%, transparent);
+
+	/* Roles */
+	--bg: var(--neutral-2);
+	--surface: var(--neutral-1);
+	--surface-subtle: var(--neutral-2);
+	--text: var(--neutral-10);
+	--muted: var(--neutral-7);
+	--border: var(--neutral-4);
+	--danger: var(--error);
+	--link: var(--neutral-10);
+	--link-hover: var(--neutral-10);
+	--link-underline: var(--color-1);
+	--link-underline-thickness: 1px;
+	--link-underline-thickness-hover: 2px;
+	--link-underline-offset: 2px;
+	--btn-primary-bg: #147793;
+	--btn-primary-hover: #126f89;
+	--btn-primary-active: #11677f;
+	--btn-primary-text: #ffffff;
+	--btn-secondary-hover: color-mix(in srgb, var(--color-1) 32%, transparent);
+
+	/* Host page layout. The editor's sticky toolbar and Design panel sit below
+	   --header-h + --sticky-actions-top; on phones the Design sheet sits above
+	   --sticky-actions-bottom. Set these to your fixed header / action bar heights. */
+	--header-h: 0px;
+	--sticky-actions-top: 0px;
+	--sticky-actions-bottom: 0px;
+}
+
+/* ── Tokens: dark. Two entry points, keep them identical. ──────────────────────────── */
+@media (prefers-color-scheme: dark) {
+	:where(:root:not([data-theme='light'])) {
+		--color-1: #1a9ec4;
+		--neutral-1: #191919;
+		--neutral-2: #202020;
+		--neutral-3: #282828;
+		--neutral-4: #363636;
+		--neutral-5: #494949;
+		--neutral-6: #757575;
+		--neutral-7: #a7a7a7;
+		--neutral-8: #c8c8c8;
+		--neutral-9: #e3e3e3;
+		--neutral-10: #f9f9f9;
+		--error: #ee9991;
+		--shadow-s: 0px 0.5px 1px 0px #19191904, 0px 2px 4px 0px #19191906;
+		--shadow-m: 0px 2px 6px 0px #19191906, 0px 8px 24px 0px #19191909;
+		--border-shadow-s: inset 0 0 0 var(--border-s) var(--border-default-color);
+		--bg: var(--neutral-1);
+		--surface: var(--neutral-2);
+		--surface-subtle: var(--neutral-3);
+		--link: var(--neutral-10);
+		--link-hover: var(--color-1);
+	}
+}
+:where(:root[data-theme='dark']) {
+	--color-1: #1a9ec4;
+	--neutral-1: #191919;
+	--neutral-2: #202020;
+	--neutral-3: #282828;
+	--neutral-4: #363636;
+	--neutral-5: #494949;
+	--neutral-6: #757575;
+	--neutral-7: #a7a7a7;
+	--neutral-8: #c8c8c8;
+	--neutral-9: #e3e3e3;
+	--neutral-10: #f9f9f9;
+	--error: #ee9991;
+	--shadow-s: 0px 0.5px 1px 0px #19191904, 0px 2px 4px 0px #19191906;
+	--shadow-m: 0px 2px 6px 0px #19191906, 0px 8px 24px 0px #19191909;
+	--border-shadow-s: inset 0 0 0 var(--border-s) var(--border-default-color);
+	--bg: var(--neutral-1);
+	--surface: var(--neutral-2);
+	--surface-subtle: var(--neutral-3);
+	--link: var(--neutral-10);
+	--link-hover: var(--color-1);
+}
+
+/* ── Base styles, scoped to the editor ─────────────────────────────────────────────────
+   The editor's components style their own layout but inherit text settings and the
+   default look of buttons, fields and links from the page. These rules supply that
+   inside the editor only (.ds-block-editor is its root element). One class of
+   specificity: they beat bare element rules and CSS resets on the host page, and lose to
+   the components' own styles and to any host rule like `.ds-block-editor button`. */
+.ds-block-editor {
+	color-scheme: light dark;
+	color: var(--text);
+	font-family: var(--font-ui);
+	font-weight: var(--weight-ui-regular);
+	font-size: var(--size-m);
+	line-height: var(--line-m);
+	letter-spacing: var(--letter-spacing-m);
+	text-wrap: pretty;
+	-webkit-font-smoothing: antialiased;
+}
+:root[data-theme='light'] .ds-block-editor {
+	color-scheme: light;
+}
+:root[data-theme='dark'] .ds-block-editor {
+	color-scheme: dark;
+}
+.ds-block-editor,
+.ds-block-editor :where(*, *::before, *::after) {
+	box-sizing: border-box;
+}
+.ds-block-editor :where(textarea) {
+	text-wrap-style: auto;
+}
+
+.ds-block-editor :where(a) {
+	color: var(--link);
+	text-decoration-line: underline;
+	text-decoration-color: var(--link-underline);
+	text-decoration-thickness: var(--link-underline-thickness);
+	text-underline-offset: var(--link-underline-offset);
+}
+.ds-block-editor :where(a:hover) {
+	color: var(--link-hover);
+	text-decoration-color: var(--link-underline);
+	text-decoration-thickness: var(--link-underline-thickness-hover);
+}
+
+.ds-block-editor :where(:focus-visible) {
+	outline: 2px solid var(--color-1);
+	outline-offset: 2px;
+}
+
+/* Buttons: a bare <button> is the primary look; .secondary / .danger the variants. */
+.ds-block-editor :where(button) {
+	font: inherit;
+	font-family: var(--font-ui);
+	font-weight: var(--weight-ui-medium);
+	font-size: var(--size-s);
+	line-height: var(--line-s);
+	letter-spacing: var(--tracking-l);
+	cursor: pointer;
+	padding: var(--space-xs) var(--space-m);
+	border: 0 solid transparent;
+	border-radius: var(--radius-s);
+	background: var(--btn-primary-bg);
+	color: var(--btn-primary-text);
+	box-shadow: none;
+	transition:
+		background-color var(--motion-duration) var(--motion-easing),
+		box-shadow var(--motion-duration) var(--motion-easing),
+		color var(--motion-duration) var(--motion-easing);
+}
+.ds-block-editor :where(button:hover) {
+	background: var(--btn-primary-hover);
+	box-shadow: var(--shadow-s);
+}
+.ds-block-editor :where(button:active) {
+	background: var(--btn-primary-active);
+	transform: translateY(var(--motion-press-distance));
+}
+.ds-block-editor :where(button:focus-visible) {
+	box-shadow: var(--focus-halo);
+}
+.ds-block-editor :where(button.secondary) {
+	background: var(--color-1-transparent);
+	color: var(--neutral-10);
+}
+.ds-block-editor :where(button.secondary:hover, button.secondary:active) {
+	background: var(--btn-secondary-hover);
+}
+.ds-block-editor :where(button.danger) {
+	background: var(--error);
+	color: var(--neutral-1);
+}
+.ds-block-editor :where(button:disabled, button:disabled:hover, button:disabled:active) {
+	background: var(--neutral-3);
+	color: var(--neutral-6);
+	box-shadow: none;
+	transform: none;
+	cursor: not-allowed;
+}
+
+/* Fields */
+.ds-block-editor :where(input, textarea, select) {
+	font: inherit;
+	font-family: var(--font-ui);
+	font-weight: var(--weight-ui-regular);
+	font-size: var(--size-s);
+	line-height: var(--line-s);
+	letter-spacing: var(--tracking-l);
+	color: var(--neutral-10);
+	background: var(--neutral-1);
+	border: 0 solid transparent;
+	border-radius: var(--radius-s);
+	padding: var(--space-xs) var(--space-s);
+	box-shadow: 0 0 0 var(--border-s) var(--neutral-4);
+	transition: box-shadow var(--motion-duration) var(--motion-easing);
+}
+.ds-block-editor :where(input:hover, textarea:hover, select:hover) {
+	box-shadow: 0 0 0 var(--border-s) var(--neutral-5);
+}
+.ds-block-editor :where(input:focus, textarea:focus, select:focus) {
+	box-shadow: 0 0 0 var(--border-s) var(--color-1-transparent), var(--focus-halo);
+}
+.ds-block-editor :where(input:focus-visible, textarea:focus-visible, select:focus-visible) {
+	outline: 2px solid var(--color-1);
+	outline-offset: 0;
+}
+.ds-block-editor :where(input, textarea, select):where([aria-invalid='true'], :user-invalid) {
+	box-shadow: 0 0 0 var(--border-s) var(--error);
+}
+.ds-block-editor :where(input[readonly], textarea[readonly]) {
+	background: var(--neutral-2);
+	color: var(--neutral-8);
+}
+.ds-block-editor :where(input:disabled, textarea:disabled, select:disabled) {
+	background: var(--neutral-3);
+	color: var(--neutral-6);
+	box-shadow: 0 0 0 var(--border-s) var(--neutral-4-transparent);
+	cursor: not-allowed;
+}
+.ds-block-editor :where(input::placeholder, textarea::placeholder) {
+	color: var(--neutral-6);
+}
+.ds-block-editor :where(input[type='checkbox'], input[type='radio']) {
+	padding: 0;
+	box-shadow: none;
+	accent-color: var(--color-1);
+}
+.ds-block-editor :where(input[type='range'], input[type='color'], input[type='file']) {
+	box-shadow: none;
+	padding: 0;
+	background: none;
+	accent-color: var(--color-1);
+}
+@media (max-width: 768px) {
+	/* ≥ 16px stops iOS Safari zooming into focused fields. */
+	.ds-block-editor :where(input, textarea, select) {
+		font-size: 16px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.ds-block-editor :where(*, *::before, *::after) {
+		transition-duration: 0ms !important;
+		animation-duration: 0ms !important;
+	}
+}

@@ -1,0 +1,78 @@
+{
+	"name": "@digisavvy/block-editor",
+	"version": "0.1.0",
+	"description": "A Notion-style block editor for emails and web pages, built with Svelte 5 and ProseMirror.",
+	"license": "UNLICENSED",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/DigiSavvy-Inc/block-editor.git"
+	},
+	"keywords": [
+		"svelte",
+		"prosemirror",
+		"editor",
+		"block-editor",
+		"email"
+	],
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build && npm run package",
+		"package": "svelte-kit sync && svelte-package",
+		"prepare": "svelte-kit sync && svelte-package",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"test": "vitest run",
+		"lint:pkg": "publint"
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*"
+	],
+	"sideEffects": [
+		"**/*.css"
+	],
+	"svelte": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"svelte": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./blocks": {
+			"types": "./dist/data.d.ts",
+			"default": "./dist/data.js"
+		},
+		"./styles.css": "./dist/styles.css",
+		"./package.json": "./package.json"
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0"
+	},
+	"dependencies": {
+		"marked": "^18.0.5",
+		"prosemirror-commands": "^1.7.2",
+		"prosemirror-dropcursor": "^1.8.4",
+		"prosemirror-gapcursor": "^1.4.1",
+		"prosemirror-history": "^1.5.1",
+		"prosemirror-inputrules": "^1.5.1",
+		"prosemirror-keymap": "^1.2.3",
+		"prosemirror-model": "^1.25.12",
+		"prosemirror-schema-list": "^1.5.1",
+		"prosemirror-state": "^1.4.4",
+		"prosemirror-transform": "^1.12.2",
+		"prosemirror-view": "^1.42.6"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.57.0",
+		"@sveltejs/package": "^2.5.8",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"publint": "^0.3.25",
+		"svelte": "^5.55.2",
+		"svelte-check": "^4.4.6",
+		"typescript": "^6.0.2",
+		"vite": "^8.0.7",
+		"vitest": "^4.1.8"
+	}
+}
