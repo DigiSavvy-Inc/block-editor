@@ -1,0 +1,48 @@
+name: Release
+
+# Publishes to npm when a version tag is pushed, through npm trusted publishing (OIDC):
+# no npm token is stored in this repository. The package's trusted publisher on npmjs.com
+# must name this repository and this workflow file (release.yml).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Tag matches package.json version
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json ($version)"
+            exit 1
+          fi
+      - name: npm 11.5.1 or newer (trusted publishing)
+        run: |
+          current="$(npm --version)"
+          if [ "$(printf '%s\n' 11.5.1 "$current" | sort -V | head -n1)" != 11.5.1 ]; then
+            npm install -g npm@11
+          fi
+          npm --version
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run package
+      - run: npx publint
+      - run: npm publish --access public
