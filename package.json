@@ -1,8 +1,8 @@
 {
 	"name": "@digisavvy/block-editor",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "A Notion-style block editor for emails and web pages, built with Svelte 5 and ProseMirror.",
-	"license": "UNLICENSED",
+	"license": "MIT",
 	"type": "module",
 	"repository": {
 		"type": "git",

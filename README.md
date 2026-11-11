@@ -10,16 +10,14 @@ Extracted from DigiSavvy's internal email app.
 
 ## Install
 
-From a git tag (builds on install):
-
-```sh
-npm i github:DigiSavvy-Inc/block-editor#v0.1.0
-```
-
-Once published to npm:
-
 ```sh
 npm i @digisavvy/block-editor
+```
+
+Or from a git tag (builds on install):
+
+```sh
+npm i github:DigiSavvy-Inc/block-editor#v0.1.1
 ```
 
 `svelte` 5 is a peer dependency. The ProseMirror packages and `marked` are installed with it.
@@ -222,4 +220,4 @@ npm run lint:pkg  # publint
 
 ## License
 
-License: not yet decided. All rights reserved until a license is added.
+Released under the MIT License. See [LICENSE](LICENSE).
