@@ -5,7 +5,7 @@
 	// settings apply to every eligible block in the selection (one undo step).
 	import Icon from '$lib/components/Icon.svelte';
 	import type { IconName } from '$lib/icons/glyphs.js';
-	import { BRAND_SWATCHES } from '$lib/brand.js';
+	import { BRAND_SWATCHES, type Swatch } from '$lib/brand.js';
 	import type { Align, TextSize } from '$lib/blocks.js';
 	import type { TurnInto } from '$lib/editor/doc.js';
 	import type { EditorController, FormatState } from '$lib/editor/setup.js';
@@ -14,12 +14,15 @@
 		ctl,
 		format,
 		mergeTags = [],
+		swatches = BRAND_SWATCHES,
 		onLink
 	}: {
 		ctl: EditorController;
 		format: FormatState | null;
 		/** Merge tags to offer (`inner` = the text between the braces); empty = no button. */
 		mergeTags?: { inner: string; desc: string }[];
+		/** The text colour palette (the editor's `swatches` prop). */
+		swatches?: Swatch[];
 		/** Open the link editor for the selected text. */
 		onLink: () => void;
 	} = $props();
@@ -163,7 +166,7 @@
 		{#if open === 'color'}
 			<div class="fmt-pop swatches" role="group" aria-label="Text colour">
 				<button type="button" class="sw auto" class:on={!f?.color} aria-pressed={!f?.color} title="Default colour" aria-label="Default colour" onmousedown={keep} onclick={() => pickColor(null)}>A</button>
-				{#each BRAND_SWATCHES as s (s.key)}
+				{#each swatches as s (s.key)}
 					{@const on = f?.color?.toLowerCase() === s.hex.toLowerCase()}
 					<button type="button" class="sw" class:on aria-pressed={on} title={s.label} aria-label={s.label} style:background={s.hex} onmousedown={keep} onclick={() => pickColor(s.hex)}></button>
 				{/each}

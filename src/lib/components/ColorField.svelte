@@ -5,7 +5,7 @@
 	// #275: compact: one row (label, then a swatch button with the hex); the swatches, hex
 	// field, native picker and contrast readout open in a popover under the row.
 	import { tick } from 'svelte';
-	import { BRAND_SWATCHES, MIN_CONTRAST, contrastRatio, normalizeHex } from '$lib/brand.js';
+	import { BRAND_SWATCHES, MIN_CONTRAST, contrastRatio, normalizeHex, type Swatch } from '$lib/brand.js';
 
 	let {
 		label,
@@ -16,6 +16,7 @@
 		min = MIN_CONTRAST,
 		/** What the contrast is measured against, for the warning text. */
 		againstLabel = 'the background',
+		swatches = BRAND_SWATCHES,
 		onchange
 	}: {
 		label: string;
@@ -26,6 +27,8 @@
 		against?: string | null;
 		min?: number;
 		againstLabel?: string;
+		/** The swatch palette (the editor's `swatches` prop). */
+		swatches?: Swatch[];
 		onchange: (hex: string | null) => void;
 	} = $props();
 
@@ -151,7 +154,7 @@
 				{#if auto}
 					<button type="button" class="auto" class:on={!current} aria-pressed={!current} onkeydown={swatchKeys} onclick={() => pick(null)}>{autoLabel}</button>
 				{/if}
-				{#each BRAND_SWATCHES as s (s.key)}
+				{#each swatches as s (s.key)}
 					<button
 						type="button"
 						class="sw"

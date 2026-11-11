@@ -17,7 +17,7 @@ npm i @digisavvy/block-editor
 Or from a git tag (builds on install):
 
 ```sh
-npm i github:DigiSavvy-Inc/block-editor#v0.1.1
+npm i github:DigiSavvy-Inc/block-editor#v0.2.0
 ```
 
 `svelte` 5 is a peer dependency. The ProseMirror packages and `marked` are installed with it.
@@ -80,6 +80,37 @@ Always sanitise on the server: the posted JSON is user input.
 | `canvasName` | `string` | `'canvas'` | Name of the hidden input holding the canvas JSON (only rendered when `canvas` is set). |
 | `onready` | `(blocks: Block[]) => void` | none | Called once after mount with the normalised blocks (useful as an unsaved-changes baseline). |
 | `upload` | `ImageUpload` | none | Stores an image file. See below. |
+| `brandLogos` | `BrandLogo[]` | `[]` | Logos offered by a "Brand logo" quick insert in the image settings. Empty hides the control. See below. |
+| `swatches` | `Swatch[]` | `BRAND_SWATCHES` | The colour palette of the text colour menu and every colour control in the Design panel. See below. |
+
+## Brand logos and swatches
+
+```ts
+type BrandLogo = { key: string; label: string; src: string; alt?: string };
+type Swatch = { key: string; label: string; hex: string };
+```
+
+`brandLogos` adds a "Brand logo" row to an image block's settings, one button per logo
+(`label`). Clicking one sets the image's `src` to the logo's URL and resets any crop. If the
+image has no alt text yet, it gets the logo's `alt`, else its `label`. Use URLs your emails
+can load (absolute, usually https).
+
+`swatches` replaces the palette. `hex` is a `#rrggbb` colour, `key` must be unique. The
+default, `BRAND_SWATCHES`, is exported from `@digisavvy/block-editor/blocks`.
+
+```svelte
+<BlockEditor
+	bind:blocks
+	brandLogos={[{ key: 'logo', label: 'Logo', src: 'https://cdn.example.com/logo.png', alt: 'Example Co' }]}
+	swatches={[
+		{ key: 'ink', label: 'Ink', hex: '#15130e' },
+		{ key: 'brand', label: 'Brand', hex: '#0a7ea4' },
+		{ key: 'white', label: 'White', hex: '#ffffff' }
+	]}
+/>
+```
+
+The types are exported from both entry points: `import type { BrandLogo, Swatch } from '@digisavvy/block-editor'`.
 
 ## Image upload
 
@@ -176,7 +207,25 @@ as `{{first_name}}` are left in place; fill them with `applyMergeTokens(html, 'h
 
 Also exported: the block types, `markdownToBlocks`, `upgradeLegacyBlocks`, `blocksAreEmpty`,
 `renderPageBlocks`, the canvas helpers (`sanitizeCanvas`, `canvasIsSet`, `canvasPadding`),
-the merge-tag and condition helpers, and `normalizeHex` / `contrastRatio` / `autoTextColor`.
+the merge-tag and condition helpers, `normalizeHex` / `contrastRatio` / `autoTextColor`,
+and `BRAND_SWATCHES`.
+
+### AVIF conversion for your own file inputs
+
+The editor converts an AVIF image to WebP (else JPEG) before calling `upload`. The same
+helpers are exported for the host's other file inputs. Importing them is safe on a server;
+calling them needs a browser (`createImageBitmap` and a canvas).
+
+```ts
+import { convertFileInput, prepareImageForUpload, isAvif } from '@digisavvy/block-editor/blocks';
+
+// <input type="file" onchange={async (e) => (error = await convertFileInput(e.currentTarget))}>
+// Swaps a chosen AVIF for the converted file in place and returns an error message, or ''.
+// { jpegFallback: false } refuses JPEG (WebP only), for inputs that need transparency.
+const file = await prepareImageForUpload(input.files[0]); // the same File unless it is AVIF
+```
+
+`AVIF_CONVERT_ERROR` / `AVIF_CONVERT_ERROR_NO_JPEG` are the messages they reject with.
 
 ## Without Svelte
 
@@ -211,6 +260,24 @@ npm test          # vitest
 npm run package   # builds dist/ with svelte-package
 npm run lint:pkg  # publint
 ```
+
+CI (`.github/workflows/ci.yml`) runs `npm ci`, `check`, `test`, `package` and `publint` on
+every pull request and on pushes to `main`.
+
+## Releasing
+
+1. Make the change on a branch and get CI green.
+2. Bump `version` in `package.json` and in `package-lock.json` (both the top-level
+   `version` and `packages[""].version`; `npm version <x.y.z> --no-git-tag-version` does
+   all three). Update the git-tag install example above. Merge to `main`.
+3. Tag the merge commit `v<version>` (for example `v0.2.0`) and push the tag.
+4. The release workflow (`.github/workflows/release.yml`) checks that the tag matches
+   `package.json`, runs the same checks as CI and publishes to npm through
+   [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC, no npm token in
+   the repository; it needs npm 11.5.1 or newer, which the workflow ensures).
+
+If the workflow cannot publish, a maintainer can publish the tagged commit by hand:
+`npm ci && npm run check && npm test && npm publish --access public`.
 
 ## Built on
 

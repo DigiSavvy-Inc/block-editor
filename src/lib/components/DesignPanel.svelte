@@ -52,7 +52,7 @@
 		sanitizeCanvas,
 		type EmailCanvas
 	} from '$lib/blocks.js';
-	import { BRAND_LOGOS, autoTextColor, normalizeHex } from '$lib/brand.js';
+	import { BRAND_SWATCHES, autoTextColor, normalizeHex, type BrandLogo, type Swatch } from '$lib/brand.js';
 	import { FOCAL_POINTS, IMAGE_RATIOS, type FocalPoint, type ImageRatio } from '$lib/image-crop.js';
 
 	let {
@@ -67,6 +67,8 @@
 		setMilestoneCount,
 		uploadError = '',
 		canUpload = true,
+		brandLogos = [],
+		swatches = BRAND_SWATCHES,
 		showOnControl = false,
 		canvas = $bindable<EmailCanvas | undefined>(undefined)
 	}: {
@@ -85,6 +87,10 @@
 		/** False when the host passed no `upload`: no file picker and no crop (a crop is
 		 *  saved as a new uploaded file). Images are set by URL. */
 		canUpload?: boolean;
+		/** Logos for the image settings' "Brand logo" quick insert; empty = no control. */
+		brandLogos?: BrandLogo[];
+		/** The swatch palette of every colour control. */
+		swatches?: Swatch[];
 		/** #498: web page templates — offer "Show on" (all pages / issue pages / archive list). */
 		showOnControl?: boolean;
 		/** The template's email canvas; undefined = no Typography / Email groups. */
@@ -107,6 +113,11 @@
 		if (!block) return;
 		if (block.type === 'button') setNode(block, { align: a ?? 'left' });
 		else setDesign(block, { align: a });
+	}
+	/** Alt text for a quick-inserted brand logo (used only when the image has none). */
+	function logoAlt(src: Val): string {
+		const l = brandLogos.find((x) => x.src === src);
+		return l ? (l.alt ?? l.label) : '';
 	}
 	/** The background the selected block sits on (its section's, else the card). */
 	const blockBg = $derived(normalizeHex(sa.bg) || '#ffffff');
@@ -221,8 +232,8 @@
 		{/if}
 		{#if uploadError}<span class="bad">{uploadError}</span>{/if}
 		<label class="fld">Image URL <input value={String(ba.src ?? '')} placeholder="https://…" onchange={(e) => setNode(pb, { src: e.currentTarget.value.trim(), ratio: null, origSrc: null, focal: null })} /></label>
-		{#if BRAND_LOGOS.length}
-		{@render seg('Brand logo', BRAND_LOGOS.map((l) => [l.src, l.label] as const), (v) => ba.src === v, (v) => setNode(pb, { src: v, alt: ba.alt || 'DigiSavvy', ratio: null, origSrc: null, focal: null }), 'stack')}
+		{#if brandLogos.length}
+		{@render seg('Brand logo', brandLogos.map((l) => [l.src, l.label] as const), (v) => ba.src === v, (v) => setNode(pb, { src: v, alt: ba.alt || logoAlt(v), ratio: null, origSrc: null, focal: null }), 'stack')}
 		{/if}
 		<label class="fld">Alt text <input value={String(ba.alt ?? '')} placeholder="Describe the image" onchange={(e) => setNode(pb, { alt: e.currentTarget.value })} /></label>
 		<label class="fld">Link <input value={String(ba.href ?? '')} placeholder="https://… (optional)" onchange={(e) => setNode(pb, { href: e.currentTarget.value.trim() })} /></label>
@@ -250,30 +261,30 @@
 {#snippet colourBody()}
 	{#if block && t === 'button'}
 		{@const pb = block}
-		<ColorField label="Button" value={(bd.bg as string) ?? null} against={blockBg} min={3} againstLabel="the background" onchange={(h) => setDesign(pb, { bg: h })} />
-		<ColorField label="Button text" value={(bd.fg as string) ?? null} against={normalizeHex(bd.bg) || (section ? secText : '#2563eb')} againstLabel="the button" onchange={(h) => setDesign(pb, { fg: h })} />
+		<ColorField {swatches} label="Button" value={(bd.bg as string) ?? null} against={blockBg} min={3} againstLabel="the background" onchange={(h) => setDesign(pb, { bg: h })} />
+		<ColorField {swatches} label="Button text" value={(bd.fg as string) ?? null} against={normalizeHex(bd.bg) || (section ? secText : '#2563eb')} againstLabel="the button" onchange={(h) => setDesign(pb, { fg: h })} />
 		{#if ba.linkLabel}
-			<ColorField label="Text link" value={(bd.linkColor as string) ?? null} against={blockBg} againstLabel="the background" onchange={(h) => setDesign(pb, { linkColor: h })} />
+			<ColorField {swatches} label="Text link" value={(bd.linkColor as string) ?? null} against={blockBg} againstLabel="the background" onchange={(h) => setDesign(pb, { linkColor: h })} />
 		{/if}
 	{:else if block && t === 'divider'}
 		{@const pb = block}
-		<ColorField label="Divider" value={(bd.color as string) ?? null} against={blockBg} min={1.5} againstLabel="the background" onchange={(h) => setDesign(pb, { color: h })} />
+		<ColorField {swatches} label="Divider" value={(bd.color as string) ?? null} against={blockBg} min={1.5} againstLabel="the background" onchange={(h) => setDesign(pb, { color: h })} />
 	{:else if block && t === 'heading'}
 		{@const pb = block}
-		<ColorField label="Heading" value={(bd.color as string) ?? null} against={blockBg} againstLabel="the background" onchange={(h) => setDesign(pb, { color: h })} />
+		<ColorField {swatches} label="Heading" value={(bd.color as string) ?? null} against={blockBg} againstLabel="the background" onchange={(h) => setDesign(pb, { color: h })} />
 	{:else if block && t === 'eyebrow'}
 		{@const pb = block}
 		{@render seg('Eyebrow label', [['text', 'Text colour'], ['accent', 'Accent']] as const, (v) => (v === 'accent') === (ba.tone === 'accent'), (v) => setNode(pb, { tone: v === 'accent' ? 'accent' : null }))}
 	{/if}
 	{#if section}
 		{@const ps = section}
-		<ColorField label="Section background" value={String(sa.bg ?? '#ffffff')} auto={false} onchange={(h) => h && setNode(ps, { bg: h })} />
+		<ColorField {swatches} label="Section background" value={String(sa.bg ?? '#ffffff')} auto={false} onchange={(h) => h && setNode(ps, { bg: h })} />
 		<div class="ctl">
-			<ColorField label="Section text" value={(sa.color as string | null) ?? null} against={normalizeHex(sa.bg) || '#ffffff'} againstLabel="the background" onchange={(h) => setNode(ps, { color: h })} />
+			<ColorField {swatches} label="Section text" value={(sa.color as string | null) ?? null} against={normalizeHex(sa.bg) || '#ffffff'} againstLabel="the background" onchange={(h) => setNode(ps, { color: h })} />
 			{#if !sa.color}<span class="hint">Auto: {secText === '#000000' ? 'black' : 'white'}, whichever reads better.</span>{/if}
 		</div>
 		<div class="ctl">
-			<ColorField label="Section accent" value={(sd.accent as string) ?? null} against={normalizeHex(sa.bg) || '#ffffff'} min={3} againstLabel="the background" onchange={(h) => setDesign(ps, { accent: h })} />
+			<ColorField {swatches} label="Section accent" value={(sd.accent as string) ?? null} against={normalizeHex(sa.bg) || '#ffffff'} min={3} againstLabel="the background" onchange={(h) => setDesign(ps, { accent: h })} />
 			<span class="hint">Eyebrow rule, step circles, milestones rule and dividers.</span>
 		</div>
 		<label class="fld">Section background image
@@ -417,7 +428,7 @@
 	{#if section}
 		{@const ps = section}
 		{@render seg('Section corners', [[-1, 'Auto'] as const, ...SECTION_RADII.map((r) => [r, `${r}px`] as const)], (r) => (r === -1 ? sd.radius === undefined : sd.radius === r), (r) => setDesign(ps, { radius: r === -1 ? null : r }))}
-		<ColorField label="Section border" autoLabel="None" value={(sd.borderColor as string) ?? null} onchange={(h) => setDesign(ps, { borderColor: h, borderWidth: h ? (sd.borderWidth ?? 1) : null })} />
+		<ColorField {swatches} label="Section border" autoLabel="None" value={(sd.borderColor as string) ?? null} onchange={(h) => setDesign(ps, { borderColor: h, borderWidth: h ? (sd.borderWidth ?? 1) : null })} />
 		{#if sd.borderColor}
 			{@render seg('Border width', [1, 2, 3, 4].map((w) => [w, `${w}px`] as const), (w) => (sd.borderWidth ?? 1) === w, (w) => setDesign(ps, { borderWidth: w }))}
 		{/if}
@@ -428,9 +439,9 @@
 	{#if canvas}
 		{@const cv = canvas}
 		<p class="hint">The card and backdrop around this template's emails.</p>
-		<ColorField label="Backdrop" autoLabel="White" value={cv.backdrop ?? null} onchange={(h) => setCanvas({ backdrop: h })} />
-		<ColorField label="Body text" value={cv.text ?? null} against="#ffffff" againstLabel="the white card" onchange={(h) => setCanvas({ text: h })} />
-		<ColorField label="Links" value={cv.link ?? null} against="#ffffff" againstLabel="the white card" onchange={(h) => setCanvas({ link: h })} />
+		<ColorField {swatches} label="Backdrop" autoLabel="White" value={cv.backdrop ?? null} onchange={(h) => setCanvas({ backdrop: h })} />
+		<ColorField {swatches} label="Body text" value={cv.text ?? null} against="#ffffff" againstLabel="the white card" onchange={(h) => setCanvas({ text: h })} />
+		<ColorField {swatches} label="Links" value={cv.link ?? null} against="#ffffff" againstLabel="the white card" onchange={(h) => setCanvas({ link: h })} />
 		{@render seg('Card width', CANVAS_WIDTHS.map((w) => [w, `${w}`] as const), (w) => cv.width === w, (w) => setCanvas({ width: cv.width === w ? null : w }))}
 		{@render seg('Card corners', CANVAS_RADII.map((r) => [r, `${r}px`] as const), (r) => (cv.radius ?? 0) === r, (r) => setCanvas({ radius: r === 0 ? null : r }))}
 		{@render seg('Card padding', [[-1, 'Auto'] as const, ...CANVAS_PADDINGS.map((p) => [p, p === 0 ? 'None' : `${p}px`] as const)], (p) => (p === -1 ? cv.padding === undefined : cv.padding === p), (p) => setCanvas({ padding: p === -1 ? null : p }))}

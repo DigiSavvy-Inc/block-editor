@@ -51,9 +51,9 @@ export const BRAND_SWATCHES: Swatch[] = [
 	{ key: 'white', label: 'White', hex: GUIDE.white }
 ];
 
-/** Brand logos for the image settings' quick insert (#269). Empty in the package: the
- *  app's list points at its own media host. With no entries the control is hidden. */
-export const BRAND_LOGOS: { key: string; label: string; src: string }[] = [];
+/** A logo offered by the image settings' "Brand logo" quick insert (the `brandLogos` prop).
+ *  `src` is stored as the image URL; `alt` (else `label`) fills an empty alt text. */
+export type BrandLogo = { key: string; label: string; src: string; alt?: string };
 
 /** Email-safe sans stack for branded blocks (no serif, by design). */
 export const BRAND_FONT = 'Inter,Helvetica,Arial,sans-serif';

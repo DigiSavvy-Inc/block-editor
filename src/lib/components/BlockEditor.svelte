@@ -37,6 +37,7 @@
 	import WritingMenu from '$lib/components/WritingMenu.svelte';
 	import { DEFAULT_WRITE_PREFS, DRAFT_SERIF_STACK, WORD_COUNT_DEBOUNCE_MS, countWords, docText, loadWritePrefs, saveWritePrefs, wordCountLabel, type WritePrefs } from '$lib/write-prefs.js';
 	import type { ImageUpload } from '$lib/upload.js';
+	import { BRAND_SWATCHES, type BrandLogo, type Swatch } from '$lib/brand.js';
 
 	type MergeTag = { tag: string; desc: string };
 	type Item = { id: string; label: string; hint: string; icon: IconName; keywords: string; action: SlashAction };
@@ -52,7 +53,9 @@
 		canvas = $bindable<EmailCanvas | undefined>(undefined),
 		canvasName = 'canvas',
 		onready,
-		upload
+		upload,
+		brandLogos = [],
+		swatches = BRAND_SWATCHES
 	}: {
 		blocks?: Block[];
 		/** #270: the template's email canvas; set (even `{}`) to edit it in the Design
@@ -71,6 +74,12 @@
 		/** Stores an image file and resolves to its public URL (see ImageUpload). Without it
 		 *  the upload affordances are hidden: images are added by URL only. */
 		upload?: ImageUpload;
+		/** Logos offered by the image settings' "Brand logo" quick insert. Empty (the
+		 *  default) hides the control. */
+		brandLogos?: BrandLogo[];
+		/** The colour swatches of the text colour menu and the Design panel's colour
+		 *  controls. Defaults to BRAND_SWATCHES. */
+		swatches?: Swatch[];
 	} = $props();
 	const isPage = $derived(target === 'page');
 
@@ -687,7 +696,7 @@
 	>
 		{#if ctl && !writeOn}
 			<!-- #524: in Write mode the selection bubble is the formatting UI. -->
-			<FormatToolbar {ctl} format={ui.format} mergeTags={isPage ? [] : mergeList} onLink={openLinkEditor} />
+			<FormatToolbar {ctl} format={ui.format} mergeTags={isPage ? [] : mergeList} {swatches} onLink={openLinkEditor} />
 		{/if}
 		{#if !ctl}<p class="be-loading">{loadError || 'Loading editor…'}</p>{/if}
 		<div class="be-doc" bind:this={mount} onbeforeinput={(e) => isTypingInput(e.inputType) && quietOn({ kind: 'type' })}></div>
@@ -889,6 +898,8 @@
 					setMilestoneCount={(pos, n) => ctl?.setMilestoneCount(pos, n)}
 					{uploadError}
 					canUpload={!!upload}
+					{brandLogos}
+					{swatches}
 					showOnControl={isPage && allowContentArea}
 					bind:canvas
 				/>
