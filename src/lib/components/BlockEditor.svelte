@@ -131,6 +131,7 @@
 		{ id: 'sec', label: 'Section', hint: 'Coloured band', icon: 'callout', keywords: 'section band background colour color hero', action: { kind: 'insert', type: 'section' } },
 		{ id: 'q', label: 'Quote', hint: '> quote', icon: 'quote', keywords: 'blockquote', action: { kind: 'turn', to: 'quote' } },
 		{ id: 'co', label: 'Callout', hint: 'Shaded box', icon: 'callout', keywords: 'note box highlight', action: { kind: 'turn', to: 'callout' } },
+		{ id: 'toc', label: 'Table of contents', hint: 'Jump links to headings', icon: 'toc', keywords: 'toc contents outline jump nav anchor', action: { kind: 'insert', type: 'toc' } },
 		{ id: 'hr', label: 'Divider', hint: '---', icon: 'divider', keywords: 'rule line hr separator', action: { kind: 'insert', type: 'divider' } },
 		{ id: 'img', label: 'Image', hint: upload ? 'Upload or link' : 'Link to an image', icon: 'image', keywords: 'picture photo upload', action: { kind: 'insert', type: 'image' } },
 		{ id: 'btn', label: 'Button', hint: 'Call to action', icon: 'button', keywords: 'cta link', action: { kind: 'insert', type: 'button' } },
@@ -479,7 +480,7 @@
 		// down under the pointer.)
 		if (!wasAtom && pBlock && ATOM_PANEL.has(pBlock.type) && isPhone()) sheetOpen = true;
 	}
-	const ATOM_PANEL = new Set(['image', 'button', 'spacer']);
+	const ATOM_PANEL = new Set(['image', 'button', 'spacer', 'toc']);
 	const isPhone = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 	// #270: the template's email canvas (templates only; undefined = not editable here).
 	const canvasStyle = $derived.by(() => {
@@ -1172,6 +1173,40 @@
 	}
 	.be-doc :global(.pm-spacer) {
 		background: repeating-linear-gradient(45deg, transparent 0 6px, #f4f4f5 6px 12px);
+	}
+	/* The table of contents looks like the page it renders to: a bulleted list of links
+	   (plain text here, so a click selects the block). */
+	.be-doc :global(.pm-toc) {
+		text-align: left;
+	}
+	.be-doc :global(.pm-toc-title) {
+		margin: 0 0 8px;
+		font-weight: 700;
+	}
+	.be-doc :global(.pm-toc-list) {
+		margin: 0;
+		padding-left: 22px;
+	}
+	.be-doc :global(.pm-toc-item) {
+		margin: 0 0 6px;
+	}
+	.be-doc :global(.pm-toc-item:not([data-depth='0'])) {
+		list-style-type: circle;
+	}
+	.be-doc :global(.pm-toc-item::marker) {
+		color: var(--acc, currentColor);
+	}
+	.be-doc :global(.pm-toc-link) {
+		color: var(--cv-link, #2563eb);
+		text-decoration: underline;
+	}
+	.be-doc :global(.pm-section .pm-toc-link) {
+		color: inherit;
+	}
+	.be-doc :global(.pm-toc-hint) {
+		display: block;
+		margin-top: 4px;
+		font-size: 13px;
 	}
 	.be-doc :global(.pm-columns) {
 		display: grid;

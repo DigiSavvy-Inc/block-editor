@@ -37,6 +37,15 @@ export type SectionBlock = {
 	accent?: string;
 };
 
+/** A table of contents: a bulleted list of jump links to the document's headings whose
+ *  level is in `levels` (sorted, unique, never empty; a display heading counts as level
+ *  1). `title` is an optional plain-text label above the list. */
+export type TocBlock = { id: string; type: 'toc'; levels: TocLevel[]; title?: string };
+export const TOC_LEVELS = [1, 2, 3] as const;
+export type TocLevel = (typeof TOC_LEVELS)[number];
+/** The longest table of contents title kept. */
+export const TOC_TITLE_MAX = 200;
+
 /** #270: per-block alignment; a section's `align` is the default its children inherit. */
 export type Align = 'left' | 'center' | 'right';
 export const ALIGNS: readonly Align[] = ['left', 'center', 'right'];
@@ -192,6 +201,7 @@ export type Block = (
 	| { id: string; type: 'spacer'; size: 'sm' | 'md' | 'lg'; px?: number }
 	| { id: string; type: 'content' } // template-only: where campaign content lands (#64)
 	| ColumnsBlock
+	| TocBlock
 ) &
 	Vis & { spaceBelow?: SpaceBelow; showOn?: ShowOn };
 
@@ -627,6 +637,12 @@ function sanitizeBlock(v: unknown, allowContent: boolean, where: Where): Block[]
 			b = { id, type: 'spacer', size: v.size === 'sm' || v.size === 'lg' ? v.size : 'md' };
 			assignDefined(b, { px: clampInt(v.px, 0, SPACER_MAX) });
 			break;
+		case 'toc': {
+			b = { id, type: 'toc', levels: cleanTocLevels(v.levels) };
+			const title = str(v.title, TOC_TITLE_MAX).replace(/\s+/g, ' ').trim();
+			if (title) b.title = title;
+			break;
+		}
 		case 'content':
 			b = allowContent && !inCell ? { id, type: 'content' } : null;
 			break;
@@ -702,6 +718,7 @@ export function blocksAreEmpty(blocks: Block[]): boolean {
 			case 'button':
 				return !!b.href;
 			case 'spacer':
+			case 'toc': // lists headings, which count on their own
 				return false;
 			case 'columns':
 				return b.cells.some((c) => c.some(has));
@@ -720,6 +737,144 @@ export function markdownToHtml(s: string): string {
 }
 
 const SPACER_PX = { sm: 12, md: 28, lg: 56 } as const;
+
+// ---------------------------------------------------------------------------
+// Table of contents
+// ---------------------------------------------------------------------------
+// Every non-empty heading in the document gets an anchor (slugs are computed over all
+// of them, so they don't depend on which levels a table of contents shows). The
+// renderers only write the anchors when the document has a table of contents block, so
+// documents without one render exactly as before.
+
+/** One line of a table of contents. `slug` is the heading's anchor (its `id`); `depth`
+ *  is its nesting in the list (0 = top level): a heading nests under the nearest earlier
+ *  listed heading of a higher level. */
+export type TocEntry = { slug: string; level: TocLevel; text: string; depth: number };
+
+type HeadingBlock = Extract<Block, { type: 'heading' }>;
+/** A heading as the renderers see it: its anchor, plus the page filters and visibility
+ *  rules of the heading and of every container around it (outermost first). */
+type TocHit = { block: HeadingBlock; slug: string; level: TocLevel; text: string; showOn: ShowOn[]; vis: Visibility[] };
+type TocLine = TocEntry & { vis: Visibility[] };
+/** Per render: each heading block's anchor, and the headings in reading order. */
+type TocCtx = { anchors: Map<Block, string>; hits: TocHit[] };
+
+const SLUG_MAX = 60;
+
+/** Sorted, unique levels out of 1–3; anything else (or none) is the default `[2]`. */
+export function cleanTocLevels(v: unknown): TocLevel[] {
+	const out = TOC_LEVELS.filter((l) => Array.isArray(v) && v.includes(l));
+	return out.length ? out : [2];
+}
+
+/** A heading's text as an anchor: lowercase ASCII letters and digits joined by `-`,
+ *  merge tags dropped, accents folded, at most 60 characters. '' when nothing is left. */
+export function headingSlug(text: string): string {
+	return String(text ?? '')
+		.replace(/\{\{[^{}]*\}\}/g, ' ')
+		.normalize('NFKD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+/, '')
+		.slice(0, SLUG_MAX)
+		.replace(/-+$/, '');
+}
+
+/** A heading's list text (merge tags kept, whitespace collapsed) and its slug source
+ *  (merge tags left out). */
+function headingTexts(b: HeadingBlock): { text: string; slugText: string } {
+	const nodes = Array.isArray(b.content) ? b.content : null;
+	const text = (nodes ? inlinePlainText(nodes) : String(b.text ?? '')).replace(/\s+/g, ' ').trim();
+	return { text, slugText: nodes ? nodes.map((n) => (n.type === 'text' ? n.text : ' ')).join('') : text };
+}
+
+/** Every non-empty heading in reading order (sections and column cells included), each
+ *  with a unique slug: repeats get `-2`, `-3`…, a heading with no usable text
+ *  `section-N` (its position among the headings). Legacy markdown blocks aren't read. */
+function tocHits(blocks: Block[]): TocHit[] {
+	const hits: TocHit[] = [];
+	const used = new Set<string>();
+	const walk = (list: unknown, showOn: ShowOn[], vis: Visibility[]) => {
+		if (!Array.isArray(list)) return;
+		for (const b of list as Block[]) {
+			if (!isObj(b)) continue;
+			const so = b.showOn ? [...showOn, b.showOn] : showOn;
+			const vs = b.visibility ? [...vis, b.visibility] : vis;
+			if (b.type === 'heading') {
+				const { text, slugText } = headingTexts(b);
+				if (!text) continue;
+				let slug = headingSlug(slugText) || `section-${hits.length + 1}`;
+				if (used.has(slug)) {
+					let n = 2;
+					while (used.has(`${slug}-${n}`)) n++;
+					slug = `${slug}-${n}`;
+				}
+				used.add(slug);
+				const level: TocLevel = b.size === 'display' || b.level === 1 ? 1 : b.level === 3 ? 3 : 2;
+				hits.push({ block: b, slug, level, text, showOn: so, vis: vs });
+			} else if (b.type === 'section') walk(b.blocks, so, vs);
+			else if (b.type === 'columns' && Array.isArray(b.cells)) for (const cell of b.cells) walk(cell, so, vs);
+		}
+	};
+	walk(blocks, [], []);
+	return hits;
+}
+
+/** The listed headings: level in `levels`, and (`page`) shown on that page. */
+function tocLines(hits: TocHit[], levels: readonly number[], page?: ShowOn): TocLine[] {
+	const want: readonly number[] = cleanTocLevels(levels);
+	const stack: number[] = [];
+	return hits
+		.filter((h) => want.includes(h.level) && (!page || h.showOn.every((s) => s === page)))
+		.map((h) => {
+			while (stack.length && stack[stack.length - 1] >= h.level) stack.pop();
+			const depth = stack.length;
+			stack.push(h.level);
+			return { slug: h.slug, level: h.level, text: h.text, depth, vis: h.vis };
+		});
+}
+
+/** True when a document has a table of contents block anywhere. */
+export function hasTocBlock(blocks: Block[]): boolean {
+	return (Array.isArray(blocks) ? blocks : []).some(
+		(b) => isObj(b) && (b.type === 'toc' || (b.type === 'section' && hasTocBlock(b.blocks)) || (b.type === 'columns' && Array.isArray(b.cells) && b.cells.some(hasTocBlock)))
+	);
+}
+
+/** The render context, or undefined (no anchors anywhere) without a table of contents. */
+function tocCtx(blocks: Block[]): TocCtx | undefined {
+	if (!hasTocBlock(blocks)) return undefined;
+	const hits = tocHits(blocks);
+	return { anchors: new Map(hits.map((h) => [h.block, h.slug])), hits };
+}
+
+/** The entries a table of contents showing `levels` lists for `blocks`, in reading
+ *  order. With `opts.page`, headings a web template leaves off that page are skipped.
+ *  The editor preview and every renderer use this. */
+export function tocEntries(blocks: Block[], levels: readonly number[] = [2], opts: { page?: ShowOn } = {}): TocEntry[] {
+	return tocLines(tocHits(blocks), levels, opts.page).map(({ slug, level, text, depth }) => ({ slug, level, text, depth }));
+}
+
+/** Lines → nested `<ul>`s. `li` opens an item (this closes it); depth only ever steps
+ *  in by one. */
+function nestedList(lines: TocLine[], li: (l: TocLine) => string): string {
+	let out = '<ul>';
+	let depth = 0;
+	lines.forEach((l, i) => {
+		if (i && l.depth > depth) {
+			out += '<ul>';
+			depth = l.depth;
+		} else if (i) {
+			out += '</li>';
+			for (; depth > l.depth; depth--) out += '</ul></li>';
+		}
+		out += li(l);
+	});
+	out += '</li>';
+	for (; depth > 0; depth--) out += '</ul></li>';
+	return `${out}</ul>`;
+}
 
 // ---------------------------------------------------------------------------
 // Page target
@@ -778,13 +933,21 @@ function blockColorCss(b: Block): string {
 /** #498: the archive page being rendered; a block with another `showOn` is left out. */
 type PageKind = ShowOn | undefined;
 
-function pageBlock(b: Block, acc?: string, content?: string, page?: PageKind): string {
+function pageBlock(b: Block, acc?: string, content?: string, page?: PageKind, toc?: TocCtx): string {
 	if (page && b.showOn && b.showOn !== page) return '';
 	switch (b.type) {
 		case 'heading': {
 			const st = pageStyle(b, b.color ? `color:${b.color};` : '');
-			if (b.size === 'display') return `<h1 class="b-display"${st}>${b.content ? renderInlineHtml(b.content, '') : esc(b.text)}</h1>`;
-			return `<h${b.level}${st}>${b.content ? renderInlineHtml(b.content, '') : esc(b.text)}</h${b.level}>`;
+			const anchor = toc?.anchors.get(b);
+			const id = anchor ? ` id="${anchor}"` : '';
+			if (b.size === 'display') return `<h1 class="b-display"${id}${st}>${b.content ? renderInlineHtml(b.content, '') : esc(b.text)}</h1>`;
+			return `<h${b.level}${id}${st}>${b.content ? renderInlineHtml(b.content, '') : esc(b.text)}</h${b.level}>`;
+		}
+		case 'toc': {
+			const lines = toc ? tocLines(toc.hits, b.levels, page) : [];
+			if (!lines.length) return '';
+			const title = b.title ? `<p class="b-toc-title">${esc(b.title)}</p>` : '';
+			return `<nav class="b-toc" aria-label="Table of contents"${pageStyle(b)}>${title}${nestedList(lines, (l) => `<li><a href="#${l.slug}">${esc(l.text)}</a>`)}</nav>`;
 		}
 		case 'eyebrow': {
 			const just = b.align ? `justify-content:${b.align === 'left' ? 'flex-start' : b.align === 'right' ? 'flex-end' : 'center'};` : '';
@@ -806,7 +969,7 @@ function pageBlock(b: Block, acc?: string, content?: string, page?: PageKind): s
 				(b.bgImage ? `background-image:url(${b.bgImage});background-size:cover;background-position:center;` : '') +
 				(b.spaceBelow !== undefined ? `margin-bottom:${b.spaceBelow}px;` : '');
 			const style = `background:${b.bg};color:${color};padding:${pad ? `${pad[0]}px ${pad[1]}px ${pad[2]}px` : PAGE_SEC_PAD[b.padding]};--acc:${accent};--hair:${hairline};--btn-bg:${color};--btn-fg:${b.bg};${b.align === 'center' ? 'text-align:center;' : ''}${extra}`;
-			return `<section class="b-sec ${b.width}" style="${style}">${b.blocks.map((x) => pageBlock(x, b.accent, content, page)).join('\n')}</section>`;
+			return `<section class="b-sec ${b.width}" style="${style}">${b.blocks.map((x) => pageBlock(x, b.accent, content, page, toc)).join('\n')}</section>`;
 		}
 		case 'text':
 			// #531: member-authored and served on the app origin — no raw HTML here.
@@ -864,7 +1027,7 @@ function pageBlock(b: Block, acc?: string, content?: string, page?: PageKind): s
 			return `<div style="height:${b.px ?? SPACER_PX[b.size] ?? SPACER_PX.md}px"></div>`;
 		case 'columns': {
 			const cells = b.cells
-				.map((cell) => `<div class="col">${cell.map((x) => pageBlock(x, acc, content, page)).join('\n')}</div>`)
+				.map((cell) => `<div class="col">${cell.map((x) => pageBlock(x, acc, content, page, toc)).join('\n')}</div>`)
 				.join('\n');
 			const css =
 				(b.gap !== undefined ? `gap:${b.gap}px;` : '') +
@@ -939,18 +1102,33 @@ export const PAGE_CSS = `  :root { color-scheme: light; }
   }
 `;
 
+/** The table of contents' page styles. Not part of PAGE_CSS, so a document without a
+ *  table of contents renders byte for byte as before: renderPageHtml adds them only when
+ *  the document has one. A host that embeds PAGE_CSS itself should add these as well
+ *  (they are inert without a table of contents). Links and bullets take a section's
+ *  text and accent colours. */
+export const PAGE_TOC_CSS = `  .b-toc { margin:0 0 16px; text-align:left; }
+  .b-toc-title { margin:0 0 8px; font-weight:700; }
+  .b-toc ul { margin:0; padding-left:22px; }
+  .b-toc li { margin:0 0 6px; }
+  .b-toc li > ul { margin-top:6px; }
+  .b-toc li::marker { color:var(--acc, currentColor); }
+`;
+
 /** #481: page-target HTML for a list of blocks (no document). A `content` block renders
  *  `content` (the newsletter archive's issue / index inside a web template). #498: with
  *  `opts.page`, blocks whose `showOn` names the other page are skipped. */
 export function renderPageBlocks(blocks: Block[], content?: string, opts: { page?: ShowOn } = {}): string {
-	return sanitizeBlocks(blocks, { allowContent: content !== undefined })
-		.map((b) => pageBlock(b, undefined, content, opts.page))
-		.join('\n');
+	const clean = sanitizeBlocks(blocks, { allowContent: content !== undefined });
+	const toc = tocCtx(clean);
+	return clean.map((b) => pageBlock(b, undefined, content, opts.page, toc)).join('\n');
 }
 
 /** Full standalone HTML document for a hosted page (/p/[slug]). */
 export function renderPageHtml(title: string, blocks: Block[]): string {
-	const body = sanitizeBlocks(blocks).map((b) => pageBlock(b)).join('\n');
+	const clean = sanitizeBlocks(blocks);
+	const toc = tocCtx(clean);
+	const body = clean.map((b) => pageBlock(b, undefined, undefined, undefined, toc)).join('\n');
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -958,7 +1136,7 @@ export function renderPageHtml(title: string, blocks: Block[]): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <style>
-${PAGE_CSS}</style>
+${PAGE_CSS}${toc ? PAGE_TOC_CSS : ''}</style>
 </head>
 <body>
 <main class="page">
@@ -971,6 +1149,14 @@ ${body}
 // ---------------------------------------------------------------------------
 // Email target (table-based hybrid — Gmail/Outlook-safe)
 // ---------------------------------------------------------------------------
+
+/** Wrap in {{#if}} markers for each visibility rule (outermost first). */
+function withConds(vis: Visibility[], s: string): string {
+	return vis.reduceRight((acc, v) => {
+		const cond = visCond(v);
+		return cond ? `{{#if ${cond}}}${acc}{{/if}}` : acc;
+	}, s);
+}
 
 /** Visibility → condition string for the per-recipient evaluator (#62). */
 function visCond(v: Visibility): string | null {
@@ -1002,6 +1188,8 @@ type EmailCtx = {
 	hfont?: string;
 	lh?: number;
 	own?: boolean;
+	/** The document's heading anchors; set only when it has a table of contents. */
+	toc?: TocCtx;
 };
 const TOP_CTX: EmailCtx = { width: 600, font: EMAIL_FONT };
 
@@ -1055,15 +1243,19 @@ function emailBlockInner(b: Block, c: EmailCtx, prev?: Block): string {
 		case 'heading': {
 			const own = `${ta(b)}${b.color ? `color:${b.color};` : ''}`;
 			const content = b.content && b.color ? inl(b.content, c, b.color) : null;
+			// A table of contents links here: `id` for most clients, `<a name>` for the rest.
+			const anchor = c.toc?.anchors.get(b);
+			const id = anchor ? ` id="${anchor}"` : '';
+			const name = anchor ? `<a name="${anchor}"></a>` : '';
 			if (b.size === 'display') {
 				// Inline 48px is the fallback; the shell's media query steps it down on phones.
-				return `<div class="ds-display" style="font-family:${c.hfont ?? c.font};font-size:${blockTextSizePx(b) ?? 48}px;font-weight:800;line-height:1.05;letter-spacing:-0.02em;margin:0 0 ${mb(b, 20)}px;${own}">${content ?? (b.content ? inl(b.content, c) : esc(b.text))}</div>`;
+				return `${name}<div class="ds-display"${id} style="font-family:${c.hfont ?? c.font};font-size:${blockTextSizePx(b) ?? 48}px;font-weight:800;line-height:1.05;letter-spacing:-0.02em;margin:0 0 ${mb(b, 20)}px;${own}">${content ?? (b.content ? inl(b.content, c) : esc(b.text))}</div>`;
 			}
 			const size = blockTextSizePx(b) ?? (b.level === 1 ? 26 : b.level === 2 ? 20 : 17);
 			// #329: space above is a top margin, like every other block's spacing here (margin
 			// on a block element holds up in Outlook's Word engine; padding on a div doesn't).
 			const top = headingSpaceAbove(b, prev);
-			return `<div style="font-family:${c.hfont ?? c.font};font-size:${size}px;font-weight:700;line-height:1.25;margin:${top ? `${top}px` : 0} 0 ${mb(b, 14)}px;${own}">${content ?? (b.content && (c.sec || c.link) ? inl(b.content, c) : headingInline(b))}</div>`;
+			return `${name}<div${id} style="font-family:${c.hfont ?? c.font};font-size:${size}px;font-weight:700;line-height:1.25;margin:${top ? `${top}px` : 0} 0 ${mb(b, 14)}px;${own}">${content ?? (b.content && (c.sec || c.link) ? inl(b.content, c) : headingInline(b))}</div>`;
 		}
 		case 'text':
 			return `<div style="font-family:${c.font};font-size:${c.size ?? 16}px;line-height:${c.lh ?? 1.6};${b.spaceBelow !== undefined ? `margin:0 0 ${b.spaceBelow}px;` : ''}">${md(b.md)}</div>`;
@@ -1102,6 +1294,23 @@ function emailBlockInner(b: Block, c: EmailCtx, prev?: Block): string {
 			const items = b.items.map((it) => `<li style="margin:0 0 8px;">${inl(it, c) || '<br>'}</li>`).join('');
 			const inside = b.align && b.align !== 'left' ? 'list-style-position:inside;padding-left:0;' : '';
 			return `<${tag} style="${textStyle(c, b)}margin:0 0 ${mb(b, 16)}px;padding-left:22px;${ta(b)}${inside}${blockColorCss(b)}">${items}</${tag}>`;
+		}
+		case 'toc': {
+			// Built like the list block. One flat list, deeper entries indented, so each entry
+			// can carry its heading's visibility rules (a hidden heading drops out of the list).
+			const lines = c.toc ? tocLines(c.toc.hits, b.levels) : [];
+			if (!lines.length) return '';
+			const link = `color:${c.sec?.color ?? c.link ?? '#2563eb'};text-decoration:underline;`;
+			const items = lines
+				.map((l) =>
+					withConds(
+						l.vis,
+						`<li style="margin:0 0 8px;${l.depth ? `margin-left:${l.depth * 22}px;list-style-type:circle;` : ''}"><a href="#${l.slug}" style="${link}">${esc(l.text)}</a></li>`
+					)
+				)
+				.join('');
+			const title = b.title ? `<div style="${textStyle(c)}font-weight:700;margin:0 0 8px;text-align:left;">${esc(b.title)}</div>` : '';
+			return `${title}<ul style="${textStyle(c)}margin:0 0 ${mb(b, 16)}px;padding-left:22px;text-align:left;">${items}</ul>`;
 		}
 		case 'milestones': {
 			const n = b.items.length;
@@ -1235,6 +1444,7 @@ function emailBlockInner(b: Block, c: EmailCtx, prev?: Block): string {
 				...(c.hfont ? { hfont: c.hfont } : {}),
 				...(c.lh ? { lh: c.lh } : {}),
 				...(c.own ? { own: true } : {}),
+				...(c.toc ? { toc: c.toc } : {}),
 				sec: { bg: b.bg, color, accent, hairline, center, ...(b.accent ? { acc: b.accent } : {}) }
 			};
 			const kids = b.blocks.map((cb, i) => emailBlock(cb, inner, b.blocks[i - 1])).join('\n');
@@ -1277,7 +1487,11 @@ const isFullSection = (b: Block) => b.type === 'section' && b.width !== 'inset';
  *  'bare' = no card layout (content filling an area inside a section). */
 export function renderBlocksEmailHtml(blocks: Block[], canvas?: EmailCanvas | null, opts: { layout?: 'doc' | 'fill' | 'bare' } = {}): string {
 	const clean = sanitizeBlocks(blocks);
-	if (!canvasIsSet(canvas)) return clean.map((b, i) => emailBlock(b, TOP_CTX, clean[i - 1])).join('\n');
+	const toc = tocCtx(clean);
+	if (!canvasIsSet(canvas)) {
+		const top = toc ? { ...TOP_CTX, toc } : TOP_CTX;
+		return clean.map((b, i) => emailBlock(b, top, clean[i - 1])).join('\n');
+	}
 	const cardW = canvas.width ?? 600;
 	const { top, side } = canvasPadding(canvas);
 	const base: EmailCtx = {
@@ -1287,7 +1501,8 @@ export function renderBlocksEmailHtml(blocks: Block[], canvas?: EmailCanvas | nu
 		...(canvas.link ? { link: canvas.link } : {}),
 		...(canvas.headingFont ? { hfont: fontStack(canvas.headingFont) } : {}),
 		...(canvas.lineHeight ? { lh: canvas.lineHeight } : {}),
-		...(canvas.font ? { own: true } : {})
+		...(canvas.font ? { own: true } : {}),
+		...(toc ? { toc } : {})
 	};
 	const layout = opts.layout ?? 'doc';
 	if (layout === 'bare') return clean.map((b, i) => emailBlock(b, { ...base, width: cardW - 2 * side }, clean[i - 1])).join('\n');
@@ -1317,6 +1532,8 @@ export function renderBlocksEmailHtml(blocks: Block[], canvas?: EmailCanvas | nu
 
 /** Plain-text alternative for a block document (for the email's TextBody). */
 export function renderBlocksEmailText(blocks: Block[]): string {
+	const clean = sanitizeBlocks(blocks);
+	const toc = tocCtx(clean);
 	const part = (b: Block): string => {
 		const inner = partInner(b);
 		const cond = b.visibility ? visCond(b.visibility) : null;
@@ -1353,11 +1570,16 @@ export function renderBlocksEmailText(blocks: Block[]): string {
 				return CONTENT_PLACEHOLDER + '\n';
 			case 'spacer':
 				return '\n';
+			case 'toc': {
+				const lines = toc ? tocLines(toc.hits, b.levels) : [];
+				if (!lines.length) return '';
+				return (b.title ? `${b.title}\n` : '') + lines.map((l) => withConds(l.vis, `${'  '.repeat(l.depth)}- ${l.text}\n`)).join('');
+			}
 			case 'columns':
 				return b.cells.map((cell) => cell.map(part).join('\n')).join('\n');
 			case 'section':
 				return b.blocks.map(part).join('\n');
 		}
 	};
-	return sanitizeBlocks(blocks).map(part).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+	return clean.map(part).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }

@@ -12,6 +12,7 @@ import {
 	sanitizeBlocks,
 	sanitizeInline,
 	inlinePlainText,
+	tocEntries,
 	CONTENT_PLACEHOLDER,
 	type Block,
 	type Inline,
@@ -257,7 +258,11 @@ function visCondMd(v: Visibility): string | null {
 	return `field:${name} == "${(v.value ?? '').replaceAll('"', '').replaceAll('}', '')}"`;
 }
 
-function blockMd(b: Block): string {
+/** Plain text for markdown with its merge tags kept as typed. */
+const escMdText = (s: string) => s.split(/(\{\{[^{}]*\}\})/g).map((part, i) => (i % 2 ? part : escMd(part))).join('');
+
+/** `root` = the whole document (a table of contents lists its headings). */
+function blockMd(b: Block, root: Block[]): string {
 	switch (b.type) {
 		case 'heading':
 			return `${'#'.repeat(b.level)} ${b.content ? inlineMd(b.content) : escMd(b.text)}`;
@@ -293,22 +298,28 @@ function blockMd(b: Block): string {
 			return '';
 		case 'content':
 			return CONTENT_PLACEHOLDER;
+		case 'toc': {
+			const list = tocEntries(root, b.levels)
+				.map((e) => `${'  '.repeat(e.depth)}- [${escMdText(e.text)}](#${e.slug})`)
+				.join('\n');
+			return list && b.title ? `${escMdText(b.title)}\n\n${list}` : list;
+		}
 		case 'columns':
-			return b.cells.map((c) => c.map(withVis).filter(Boolean).join('\n\n')).filter(Boolean).join('\n\n');
+			return b.cells.map((c) => c.map((x) => withVis(x, root)).filter(Boolean).join('\n\n')).filter(Boolean).join('\n\n');
 		case 'section':
-			return b.blocks.map(withVis).filter(Boolean).join('\n\n');
+			return b.blocks.map((x) => withVis(x, root)).filter(Boolean).join('\n\n');
 	}
 }
 
-function withVis(b: Block): string {
-	const md = blockMd(b);
+function withVis(b: Block, root: Block[]): string {
+	const md = blockMd(b, root);
 	const cond = b.visibility ? visCondMd(b.visibility) : null;
 	return cond && md ? `{{#if ${cond}}}\n\n${md}\n\n{{/if}}` : md;
 }
 
 /** Blocks → markdown for `campaigns.body_md`. */
 export function blocksToMarkdown(blocks: Block[]): string {
-	return blocks.map(withVis).filter((s) => s.trim()).join('\n\n').trim();
+	return blocks.map((b) => withVis(b, blocks)).filter((s) => s.trim()).join('\n\n').trim();
 }
 
 /** #255: a stored template / global header-footer document → the editor's rich shape.

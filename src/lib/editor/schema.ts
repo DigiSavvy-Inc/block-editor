@@ -32,6 +32,7 @@ const image = atomDom('image');
 const button = atomDom('button');
 const spacer = atomDom('spacer');
 const contentArea = atomDom('content_area');
+const toc = atomDom('toc');
 
 const nodes: Record<string, NodeSpec> = {
 	doc: { content: 'block+' },
@@ -219,6 +220,16 @@ const nodes: Record<string, NodeSpec> = {
 		attrs: { ...blockAttrs, size: { default: 'md' } },
 		parseDOM: [spacer.parse],
 		toDOM: spacer.toDOM
+	},
+	// A table of contents: its list is drawn from the document's headings by the editor
+	// (a decoration feeds the node view), never stored on the node.
+	toc: {
+		group: 'block cellblock secblock',
+		atom: true,
+		selectable: true,
+		attrs: { ...blockAttrs, levels: { default: [2] }, title: { default: '' } },
+		parseDOM: [toc.parse],
+		toDOM: toc.toDOM
 	},
 	content_area: {
 		group: 'block secblock',

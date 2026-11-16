@@ -17,5 +17,8 @@ export type {
 	ShowOn,
 	SpaceBelow,
 	TextSize,
+	TocBlock,
+	TocEntry,
+	TocLevel,
 	Visibility
 } from './blocks.js';

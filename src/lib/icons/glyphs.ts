@@ -117,6 +117,8 @@ export const GLYPHS = {
 	'thumbs-down': "<path d=\"M7 13.5V4H4.5a1 1 0 0 0-1 1v7.5a1 1 0 0 0 1 1z\"/><path d=\"M7 13.5l3.5 7a2 2 0 0 0 2.5-2.2l-.6-3.8h5.7a2 2 0 0 0 2-2.4l-1.3-6.5a2 2 0 0 0-2-1.6H7\"/>",
 	'clear-format': "<path d=\"M6 5h12M12 5l-3.5 14\"/><path d=\"M14.5 14.5l5 5M19.5 14.5l-5 5\"/>",
 	'write-mode': "<path d=\"M8 3H5a2 2 0 0 0-2 2v3\"/><path d=\"M21 8V5a2 2 0 0 0-2-2h-3\"/><path d=\"M3 16v3a2 2 0 0 0 2 2h3\"/><path d=\"M16 21h3a2 2 0 0 0 2-2v-3\"/>",
+	// Table of contents: a bulleted outline, the second and third entries indented.
+	'toc': "<path d=\"M8 6.5h12.5M11.5 12h9M11.5 17.5h9\"/><path d=\"M3.5 6.5h.01M7 12h.01M7 17.5h.01\"/>",
 } as const;
 export type IconName = keyof typeof GLYPHS;
 export const ICON_NAMES = Object.keys(GLYPHS) as IconName[];
