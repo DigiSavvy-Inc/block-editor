@@ -33,6 +33,7 @@ import { cleanPastedHtml } from './paste.js';
 import { linkAtSelection, unlinkTr } from './link-range.js';
 import { pasteLinkTr } from './paste-link.js';
 import { focusDimPlugin, setFocusDimTr } from './focus-dim.js';
+import { tocEntriesOf, tocLevelsLabel, tocPlugin } from './toc.js';
 import { SHOW_ON_LABELS, TEXT_SIZE_PX, clampImageWidthPct, cleanHref, cleanImageUrl, textSizeKind, type Align, type TextSize, type Visibility } from '$lib/blocks.js';
 import { BRAND } from '$lib/brand.js';
 import { isMergeToken } from '$lib/merge-tags.js';
@@ -80,10 +81,11 @@ const ID_TYPES = new Set([
 	'columns',
 	'section',
 	'eyebrow',
-	'milestones'
+	'milestones',
+	'toc'
 ]);
 const MS_FIELDS = new Set(['milestone_title', 'milestone_label']);
-const ATOM_TYPES = new Set(['image', 'button', 'spacer', 'divider', 'content_area']);
+const ATOM_TYPES = new Set(['image', 'button', 'spacer', 'divider', 'content_area', 'toc']);
 
 const newId = () => crypto.randomUUID();
 
@@ -315,12 +317,55 @@ function imageView(node: PMNodeT, view: EditorView, getPos: () => number | undef
 	};
 }
 
+/** The table of contents: its title and the headings it lists (handed in by tocPlugin as
+ *  a decoration) as plain text. A click selects the block; the entries are not links. */
+function tocView(node: PMNodeT, _view: EditorView, _getPos: () => number | undefined, decos: readonly Decoration[]): NodeView {
+	const dom = el('div', 'pm-atom pm-toc');
+	dom.contentEditable = 'false';
+	let cur = node;
+	let entries = tocEntriesOf(decos);
+	function render() {
+		dom.replaceChildren();
+		const title = String(cur.attrs.title ?? '').trim();
+		if (title) dom.appendChild(el('div', 'pm-toc-title', title));
+		if (!entries.length) {
+			const empty = el('div', 'pm-placeholder pm-toc-empty', 'Headings will appear here.');
+			empty.appendChild(el('span', 'pm-toc-hint', `Shows ${tocLevelsLabel(cur.attrs.levels)} headings.`));
+			dom.appendChild(empty);
+			return;
+		}
+		const ul = el('ul', 'pm-toc-list');
+		for (const e of entries) {
+			const li = el('li', 'pm-toc-item');
+			li.dataset.depth = String(e.depth);
+			if (e.depth) li.style.marginLeft = `${e.depth * 22}px`;
+			li.appendChild(el('span', 'pm-toc-link', e.text));
+			ul.appendChild(li);
+		}
+		dom.appendChild(ul);
+	}
+	render();
+	return {
+		dom,
+		update(n, d) {
+			if (n.type !== cur.type) return false;
+			cur = n;
+			entries = tocEntriesOf(d);
+			render();
+			return true;
+		},
+		stopEvent: () => false,
+		ignoreMutation: () => true
+	};
+}
+
 /** #270: a node's design attr as a plain object ({} when unset). */
 const design = (n: PMNodeT): Record<string, unknown> => (n.attrs.design && typeof n.attrs.design === 'object' ? (n.attrs.design as Record<string, unknown>) : {});
 const BTN_SIZE_CSS = { sm: ['8px 16px', '14px'], lg: ['15px 30px', '18px'] } as const;
 
 const nodeViews = {
 	image: imageView,
+	toc: tocView,
 	button: atomView((n, dom) => {
 		const d = design(n);
 		dom.style.textAlign = String(n.attrs.align ?? 'left');
@@ -557,7 +602,7 @@ export type BlockInfo = { pos: number; node: PMNodeT; dom: HTMLElement; index: n
 
 export type SlashAction =
 	| { kind: 'turn'; to: TurnInto }
-	| { kind: 'insert'; type: 'divider' | 'image' | 'button' | 'spacer' | 'content_area' | 'columns2' | 'columns3' | 'section' | 'milestones' }
+	| { kind: 'insert'; type: 'divider' | 'image' | 'button' | 'spacer' | 'content_area' | 'columns2' | 'columns3' | 'section' | 'milestones' | 'toc' }
 	| { kind: 'merge'; tag: string };
 
 /** Position of the block containing `pos`: the deepest id-carrying node whose parent is
@@ -608,6 +653,7 @@ export function createEditor(mount: HTMLElement, opts: EditorOptions) {
 			gapCursor(),
 			uniqueIds(),
 			decorations(opts.placeholder ?? "Start writing, or type '/' for blocks"),
+			tocPlugin(),
 			focusDimPlugin()
 		]
 	});

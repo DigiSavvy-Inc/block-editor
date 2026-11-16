@@ -1,7 +1,7 @@
 // #250: ProseMirror JSON ↔ Block[] (the stored model). Pure functions on plain JSON —
 // no DOM and no prosemirror imports — so they run in the Workers test pool. The node
 // and mark names match ./schema.ts.
-import { DESIGN_KEYS, sanitizeBlocks, sanitizeInline, inlinePlainText, type Block, type Inline, type InlineMark, type Visibility } from '$lib/blocks.js';
+import { DESIGN_KEYS, sanitizeBlocks, sanitizeInline, inlinePlainText, type Block, type Inline, type InlineMark, type TocLevel, type Visibility } from '$lib/blocks.js';
 import { markdownToBlocks } from '$lib/blocks-markdown.js';
 import type { FocalPoint, ImageRatio } from '$lib/image-crop.js';
 
@@ -131,6 +131,9 @@ function blockFromPMBase(n: PMNode): Block | null {
 			return { ...base, type: 'spacer', size: a?.size === 'sm' || a?.size === 'lg' ? a.size : 'md' };
 		case 'content_area':
 			return { ...base, type: 'content' };
+		case 'toc':
+			// The sanitiser normalises the levels and trims the title.
+			return { ...base, type: 'toc', levels: (Array.isArray(a?.levels) ? a.levels : [2]) as TocLevel[], ...(a?.title ? { title: String(a.title) } : {}) };
 		case 'columns':
 			return {
 				...base,
@@ -239,6 +242,8 @@ export function blockToPM(b: Block): PMNode[] {
 			return [{ type: 'spacer', attrs: { ...attrs, size: b.size } }];
 		case 'content':
 			return [{ type: 'content_area', attrs }];
+		case 'toc':
+			return [{ type: 'toc', attrs: { ...attrs, levels: [...b.levels], title: b.title ?? '' } }];
 		case 'columns':
 			return [
 				{

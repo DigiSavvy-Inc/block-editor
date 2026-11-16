@@ -15,6 +15,7 @@
 		button: 'Button',
 		divider: 'Divider',
 		spacer: 'Spacer',
+		toc: 'Table of contents',
 		content_area: 'Content area'
 	};
 
@@ -45,12 +46,16 @@
 		SHOW_ON_LABELS,
 		SPACE_BELOW,
 		SPACER_MAX,
+		TOC_LEVELS,
+		TOC_TITLE_MAX,
 		canvasIsSet,
 		clampImageWidthPct,
 		cleanHref,
 		cleanImageUrl,
+		cleanTocLevels,
 		sanitizeCanvas,
-		type EmailCanvas
+		type EmailCanvas,
+		type TocLevel
 	} from '$lib/blocks.js';
 	import { BRAND_SWATCHES, autoTextColor, normalizeHex, type BrandLogo, type Swatch } from '$lib/brand.js';
 	import { FOCAL_POINTS, IMAGE_RATIOS, type FocalPoint, type ImageRatio } from '$lib/image-crop.js';
@@ -151,6 +156,17 @@
 		setDesign(section, { padTop: py, padBottom: py, padX: px });
 	}
 
+	/** A table of contents keeps at least one heading level on. */
+	function toggleTocLevel(s: Snap, levels: TocLevel[], l: number) {
+		const next = levels.includes(l as TocLevel) ? levels.filter((x) => x !== l) : cleanTocLevels([...levels, l]);
+		if (next.length) setNode(s, { levels: next });
+	}
+	/** Commits on change and on Enter (Enter must never submit the host's form). */
+	function setTocTitle(s: Snap, raw: string) {
+		const title = raw.replace(/\s+/g, ' ').trim().slice(0, TOC_TITLE_MAX);
+		if (title !== String(s.attrs.title ?? '')) setNode(s, { title });
+	}
+
 	function setCanvas(patch: Partial<Record<keyof EmailCanvas, unknown>>) {
 		if (!canvas) return;
 		const next: Record<string, unknown> = { ...canvas };
@@ -163,7 +179,7 @@
 	const fontOf = (key: string | undefined) => EMAIL_FONTS.find((f) => f.key === key)?.stack ?? EMAIL_FONTS[0].stack;
 
 	// Which groups have anything for this selection.
-	const hasSettings = $derived(t === 'image' || t === 'button' || t === 'milestones');
+	const hasSettings = $derived(t === 'image' || t === 'button' || t === 'milestones' || t === 'toc');
 	const hasColour = $derived(['button', 'divider', 'heading', 'eyebrow'].includes(t) || !!section);
 	const hasDims = $derived((!!block && t !== 'content_area') || !!columns || !!section);
 	const hasLayout = $derived(ALIGN_TYPES.has(t) || !!columns || !!section);
@@ -255,6 +271,27 @@
 		{@const pb = block}
 		{@render seg('Items', [[2, '2'], [3, '3'], [4, '4']] as const, (n) => pb.childCount === n, (n) => setMilestoneCount(pb.pos, Number(n)))}
 		<label class="check"><input type="checkbox" checked={ba.rule !== false} onchange={(e) => setNode(pb, { rule: e.currentTarget.checked })} /> Thick rule above</label>
+	{:else if block && t === 'toc'}
+		{@const pb = block}
+		{@const levels = cleanTocLevels(ba.levels)}
+		<div class="ctl">
+			{@render seg('Headings', TOC_LEVELS.map((l) => [l, `H${l}`] as const), (v) => levels.includes(Number(v) as TocLevel), (v) => toggleTocLevel(pb, levels, Number(v)))}
+			<span class="hint">Lists every heading at these levels, in order. At least one stays on.</span>
+		</div>
+		<label class="fld">Title
+			<input
+				value={String(ba.title ?? '')}
+				maxlength={TOC_TITLE_MAX}
+				placeholder="Table of contents"
+				onchange={(e) => setTocTitle(pb, e.currentTarget.value)}
+				onkeydown={(e) => {
+					if (e.key !== 'Enter') return;
+					e.preventDefault();
+					setTocTitle(pb, e.currentTarget.value);
+				}}
+			/>
+		</label>
+		<span class="hint">Optional. Leave it empty for no title.</span>
 	{/if}
 {/snippet}
 
