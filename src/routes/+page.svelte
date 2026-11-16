@@ -16,6 +16,7 @@
 			content: [...text('Hi '), { type: 'mergeTag', tag: 'first_name' }, ...text(', type '), { type: 'text', text: '/', marks: [{ type: 'code' }] }, ...text(' on an empty line to insert a block, or select text to format it.')]
 		},
 		{ id: 'demo-list', type: 'list', ordered: false, items: [text('Sections, columns, buttons and images'), text('Merge tags and per-recipient visibility (email target)')] },
+		{ id: 'demo-toc', type: 'toc', levels: [2, 3], title: 'On this page' },
 		{
 			id: 'demo-section',
 			type: 'section',
@@ -28,7 +29,11 @@
 				{ id: 'demo-btn', type: 'button', label: 'Call to action', href: 'https://example.com', align: 'left' }
 			]
 		},
-		{ id: 'demo-p3', type: 'paragraph', content: text('Try the Image block: "Upload image" in the Design panel uses the demo\'s in-memory upload.') }
+		{ id: 'demo-h2b', type: 'heading', level: 2, text: 'Try it out', content: text('Try it out') },
+		{ id: 'demo-h3a', type: 'heading', level: 3, text: 'Images', content: text('Images') },
+		{ id: 'demo-p3', type: 'paragraph', content: text('Try the Image block: "Upload image" in the Design panel uses the demo\'s in-memory upload.') },
+		{ id: 'demo-h3b', type: 'heading', level: 3, text: 'Table of contents', content: text('Table of contents') },
+		{ id: 'demo-p4', type: 'paragraph', content: text('The list above follows the headings as you edit them. Select it to choose which levels it shows.') }
 	]);
 	let canvas = $state<EmailCanvas | undefined>({});
 	let target = $state<'email' | 'page'>('email');

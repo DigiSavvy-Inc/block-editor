@@ -17,7 +17,7 @@ npm i @digisavvy/block-editor
 Or from a git tag (builds on install):
 
 ```sh
-npm i github:DigiSavvy-Inc/block-editor#v0.2.0
+npm i github:DigiSavvy-Inc/block-editor#v0.3.0
 ```
 
 `svelte` 5 is a peer dependency. The ProseMirror packages and `marked` are installed with it.
@@ -82,6 +82,51 @@ Always sanitise on the server: the posted JSON is user input.
 | `upload` | `ImageUpload` | none | Stores an image file. See below. |
 | `brandLogos` | `BrandLogo[]` | `[]` | Logos offered by a "Brand logo" quick insert in the image settings. Empty hides the control. See below. |
 | `swatches` | `Swatch[]` | `BRAND_SWATCHES` | The colour palette of the text colour menu and every colour control in the Design panel. See below. |
+
+## Blocks
+
+Type `/` (or click the `+` beside a block) to insert one. The stored `type` is in brackets.
+
+- Text (`paragraph`), Heading 1 / 2 / 3 and Display heading (`heading`), Eyebrow (`eyebrow`)
+- Bulleted list, Numbered list and Steps (`list`), Quote (`quote`), Callout (`callout`)
+- Table of contents (`toc`), see below
+- Image (`image`), Button (`button`), Divider (`divider`), Spacer (`spacer`)
+- Section, a coloured band holding other blocks (`section`), 2 and 3 columns (`columns`),
+  Milestones (`milestones`)
+- Content area, with `allowContentArea` (`content`): where a template's content lands
+
+Older documents may also hold `text` blocks (markdown); the editor opens them as rich blocks.
+
+### Table of contents
+
+```ts
+{ id: 'toc', type: 'toc', levels: [2, 3], title: 'On this page' }
+```
+
+A bulleted list of jump links to the document's headings. `levels` picks which heading
+levels it lists (any of 1, 2, 3; default `[2]`), `title` is an optional plain-text line
+above the list. In the editor, select the block to set both in the Design panel; its
+preview follows the headings as you edit them.
+
+- It lists every heading block in reading order, including those in sections and column
+  cells. A display heading counts as level 1. Empty headings and legacy markdown `text`
+  blocks are left out. Lower levels nest under higher ones.
+- Each heading's anchor is a slug of its text (`Getting started` → `#getting-started`;
+  repeats get `-2`, `-3`). Headings only get anchors when the document has a table of
+  contents, so documents without one render exactly as before.
+- Web pages: a `<nav class="b-toc">`. Its styles are `PAGE_TOC_CSS`, which `renderPageHtml`
+  adds when the document has a table of contents. If you embed `PAGE_CSS` yourself (with
+  `renderPageBlocks`), embed `PAGE_TOC_CSS` after it as well. With `opts.page`, headings that
+  page doesn't show are left out of the list.
+- Email: the list is links to `#anchor`, and each heading carries both an `id` and an
+  `<a name>`. Jump links work on web pages everywhere, but in email only in some clients;
+  in the others the links do nothing and the list reads as a plain outline of the email.
+  An entry for a heading with a visibility rule carries the same rule.
+- Plain text and markdown: the title, then one `- Heading` line per entry, indented for
+  lower levels (markdown links each line to its anchor).
+
+`tocEntries(blocks, levels, { page })` returns the entries (`{ slug, level, text, depth }`)
+the renderers list; `headingSlug(text)` and `hasTocBlock(blocks)` are exported too.
 
 ## Brand logos and swatches
 
@@ -206,7 +251,8 @@ document (doctype, `<head>`, preheader, footer, unsubscribe link). Other merge t
 as `{{first_name}}` are left in place; fill them with `applyMergeTokens(html, 'html', resolve)`.
 
 Also exported: the block types, `markdownToBlocks`, `upgradeLegacyBlocks`, `blocksAreEmpty`,
-`renderPageBlocks`, the canvas helpers (`sanitizeCanvas`, `canvasIsSet`, `canvasPadding`),
+`renderPageBlocks`, `PAGE_CSS` / `PAGE_TOC_CSS`, the table of contents helpers (`tocEntries`,
+`headingSlug`, `hasTocBlock`), the canvas helpers (`sanitizeCanvas`, `canvasIsSet`, `canvasPadding`),
 the merge-tag and condition helpers, `normalizeHex` / `contrastRatio` / `autoTextColor`,
 and `BRAND_SWATCHES`.
 
