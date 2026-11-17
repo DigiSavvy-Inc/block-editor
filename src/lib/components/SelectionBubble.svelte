@@ -7,6 +7,7 @@
 	import type { IconName } from '$lib/icons/glyphs.js';
 	import type { TurnInto } from '$lib/editor/doc.js';
 	import type { EditorController, FormatState } from '$lib/editor/setup.js';
+	import { headingShortcut, isMacPlatform, shortcutLabel } from '$lib/editor/shortcuts.js';
 
 	let {
 		ctl,
@@ -27,16 +28,20 @@
 		onClose: () => void;
 	} = $props();
 
+	// Only rendered in the browser (it needs the editor controller), so the platform is known.
+	const mac = isMacPlatform();
+	const hint = (name: string, keys: string) => `${name} (${shortcutLabel(keys, mac)})`;
+
 	type Mark = 'bold' | 'italic' | 'underline' | 'strike';
 	const MARKS: { mark: Mark; icon: IconName; title: string }[] = [
-		{ mark: 'bold', icon: 'bold', title: 'Bold (Cmd/Ctrl+B)' },
-		{ mark: 'italic', icon: 'italic', title: 'Italic (Cmd/Ctrl+I)' },
-		{ mark: 'underline', icon: 'underline', title: 'Underline (Cmd/Ctrl+U)' },
-		{ mark: 'strike', icon: 'strike', title: 'Strikethrough (Cmd/Ctrl+Shift+S)' }
+		{ mark: 'bold', icon: 'bold', title: hint('Bold', 'Mod+B') },
+		{ mark: 'italic', icon: 'italic', title: hint('Italic', 'Mod+I') },
+		{ mark: 'underline', icon: 'underline', title: hint('Underline', 'Mod+U') },
+		{ mark: 'strike', icon: 'strike', title: hint('Strikethrough', 'Mod+Shift+X') }
 	];
 	const TURNS: { to: TurnInto; label: string; title: string }[] = [
-		{ to: 'h2', label: 'H2', title: 'Heading 2 (Cmd/Ctrl+Alt+2)' },
-		{ to: 'h3', label: 'H3', title: 'Heading 3 (Cmd/Ctrl+Alt+3)' }
+		{ to: 'h2', label: 'H2', title: hint('Heading 2', headingShortcut(2, mac)) },
+		{ to: 'h3', label: 'H3', title: hint('Heading 3', headingShortcut(3, mac)) }
 	];
 
 	const f = $derived(format);

@@ -128,6 +128,33 @@ preview follows the headings as you edit them.
 `tocEntries(blocks, levels, { page })` returns the entries (`{ slug, level, text, depth }`)
 the renderers list; `headingSlug(text)` and `hasTocBlock(blocks)` are exported too.
 
+## Keyboard shortcuts
+
+Tooltips and the tip line show the keys for the computer in use.
+
+| Action | Mac | Windows and Linux |
+| --- | --- | --- |
+| Bold | ⌘B | Ctrl+B |
+| Italic | ⌘I | Ctrl+I |
+| Underline | ⌘U | Ctrl+U |
+| Strikethrough | ⌘⇧X | Ctrl+Shift+X |
+| Code | ⌘E | Ctrl+E |
+| Align left | ⌘⇧L | Ctrl+Shift+L |
+| Align center | ⌘⇧E | Ctrl+Shift+E |
+| Align right | ⌘⇧R | Ctrl+Shift+R |
+| Heading 1, 2, 3 | ⌘⌥1, ⌘⌥2, ⌘⌥3 | Ctrl+Shift+1, Ctrl+Shift+2, Ctrl+Shift+3 |
+| Move block up, down | ⌘⇧↑, ⌘⇧↓ | Ctrl+Shift+↑, Ctrl+Shift+↓ |
+| Undo | ⌘Z | Ctrl+Z |
+| Redo | ⌘⇧Z or ⌘Y | Ctrl+Shift+Z or Ctrl+Y |
+| Line break | ⇧Enter | Shift+Enter |
+| Write mode | ⌘⇧F | Ctrl+Shift+F |
+
+Headings use Ctrl+Shift on Windows and Linux because Ctrl+Alt is AltGr on international
+layouts and types a character there. Align right shares its keys with the browser's hard
+reload, so the editor claims them while it has focus; with focus outside the editor the
+browser reloads as usual. The old strikethrough shortcut (⌘⇧S, Ctrl+Shift+S) still works,
+but it is the screenshot shortcut in Firefox.
+
 ## Brand logos and swatches
 
 ```ts
@@ -209,7 +236,7 @@ Host layout: the formatting toolbar and the Design panel stick below
 bottom sheet above `--sticky-actions-bottom`. They default to `0px`. If your page has a
 fixed header or a sticky action bar, set them to those heights.
 
-Write mode (Cmd/Ctrl+Shift+F) sets `data-write-mode` on `<html>` while it is on (and
+Write mode (⌘⇧F on a Mac, Ctrl+Shift+F elsewhere) sets `data-write-mode` on `<html>` while it is on (and
 `data-write-mode-exit` briefly as it ends). Hide your own page chrome with it, for example
 `html[data-write-mode] .site-header { display: none; }`.
 

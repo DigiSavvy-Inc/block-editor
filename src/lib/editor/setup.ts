@@ -34,6 +34,7 @@ import { linkAtSelection, unlinkTr } from './link-range.js';
 import { pasteLinkTr } from './paste-link.js';
 import { focusDimPlugin, setFocusDimTr } from './focus-dim.js';
 import { tocEntriesOf, tocLevelsLabel, tocPlugin } from './toc.js';
+import { headingShortcut, isMacPlatform } from './shortcuts.js';
 import { SHOW_ON_LABELS, TEXT_SIZE_PX, clampImageWidthPct, cleanHref, cleanImageUrl, textSizeKind, type Align, type TextSize, type Visibility } from '$lib/blocks.js';
 import { BRAND } from '$lib/brand.js';
 import { isMergeToken } from '$lib/merge-tags.js';
@@ -187,9 +188,20 @@ const hardBreak: Command = (state, dispatch) => {
 	return true;
 };
 
+/** Runs the command and claims the key either way, so the browser's own shortcut for it
+ *  (hard reload, Firefox's screenshot) never fires while the editor has focus. */
+const always =
+	(cmd: Command): Command =>
+	(state, dispatch, view) => {
+		cmd(state, dispatch, view);
+		return true;
+	};
+
 function keys() {
 	const m = schema.marks;
 	const li = schema.nodes.list_item;
+	const mac = isMacPlatform();
+	const heading = (level: 1 | 2 | 3) => headingShortcut(level, mac).replaceAll('+', '-');
 	return keymap({
 		'Mod-z': undo,
 		'Shift-Mod-z': redo,
@@ -197,15 +209,19 @@ function keys() {
 		'Mod-b': toggleMark(m.bold),
 		'Mod-i': toggleMark(m.italic),
 		'Mod-u': toggleMark(m.underline),
-		'Mod-Shift-s': toggleMark(m.strike),
+		'Mod-Shift-x': toggleMark(m.strike),
+		// The old strikethrough key still works. It is Firefox's screenshot shortcut, so
+		// tooltips show Mod-Shift-x.
+		'Mod-Shift-s': always(toggleMark(m.strike)),
 		'Mod-e': toggleMark(m.code),
 		// #276: alignment and headings.
 		'Mod-Shift-l': setAlign('left'),
 		'Mod-Shift-e': setAlign('center'),
-		'Mod-Shift-r': setAlign('right'),
-		'Mod-Alt-1': turnSelectionInto('h1'),
-		'Mod-Alt-2': turnSelectionInto('h2'),
-		'Mod-Alt-3': turnSelectionInto('h3'),
+		// Mod-Shift-r is hard reload in every browser.
+		'Mod-Shift-r': always(setAlign('right')),
+		[heading(1)]: turnSelectionInto('h1'),
+		[heading(2)]: turnSelectionInto('h2'),
+		[heading(3)]: turnSelectionInto('h3'),
 		'Shift-Enter': hardBreak,
 		ArrowUp: arrowBlock(-1),
 		ArrowDown: arrowBlock(1),
