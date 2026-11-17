@@ -22,6 +22,7 @@
 	import { blocksToDoc, docToBlocks, type TurnInto } from '$lib/editor/doc.js';
 	import type { EditorController, UiState, SlashAction, BlockInfo } from '$lib/editor/setup.js';
 	import { canMoveBlock, moveTitle } from '$lib/editor/move.js';
+	import { isMacPlatform, shortcutLabel } from '$lib/editor/shortcuts.js';
 	import { hrefHasMergeTag, shortHref } from '$lib/editor/link-range.js';
 	import { prepareImageForUpload } from '$lib/image-convert.js';
 	import {
@@ -430,7 +431,12 @@
 	// #330: after a ↑/↓ click the handle follows the moved block; it stays pinned there
 	// until the pointer really moves (browsers fire a mousemove when layout shifts).
 	let pin: { x: number; y: number } | null = null;
-	const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+	// Set after mount: the server render and the first client render both say Ctrl, then a
+	// Mac switches to ⌘ (the bar and its tip are server-rendered).
+	let isMac = $state(false);
+	onMount(() => {
+		isMac = isMacPlatform();
+	});
 
 	function moveFromHandle(dir: -1 | 1, e: MouseEvent) {
 		if (!handle || !ctl || !canMoveBlock(handle.info.index, handle.info.siblings, dir)) return;
@@ -659,7 +665,7 @@
 				class="write-btn"
 				class:on={writeMode}
 				aria-pressed={writeMode}
-				title="Write mode: hide the app around the editor ({isMac ? 'Cmd' : 'Ctrl'}+Shift+F, Esc to exit)"
+				title="Write mode: hide the app around the editor ({shortcutLabel('Mod+Shift+F', isMac)}, Esc to exit)"
 				onclick={() => toggleWriteMode()}><Icon name="write-mode" size={16} /> Write</button
 			>
 			{#if writeOn}<WritingMenu prefs={writePrefs} onchange={setWritePrefs} bind:open={writingOpen} />{/if}
@@ -670,7 +676,7 @@
 			</div>
 		{/if}
 		<span class="be-tip">
-			Type <kbd>/</kbd> for blocks{#if !isPage}, <kbd>{'{{'}</kbd> for merge tags{/if}. Format with the toolbar or the bubble over selected text; select text and paste a link to link it. <kbd>Cmd/Ctrl+Shift+↑↓</kbd> moves a block. <kbd>Cmd/Ctrl+Shift+F</kbd> toggles Write mode.
+			Type <kbd>/</kbd> for blocks{#if !isPage}, <kbd>{'{{'}</kbd> for merge tags{/if}. Format with the toolbar or the bubble over selected text; select text and paste a link to link it. <kbd>{shortcutLabel('Mod+Shift+↑↓', isMac)}</kbd> moves a block. <kbd>{shortcutLabel('Mod+Shift+F', isMac)}</kbd> toggles Write mode.
 		</span>
 	</div>
 

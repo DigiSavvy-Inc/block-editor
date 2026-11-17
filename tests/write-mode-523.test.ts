@@ -155,7 +155,7 @@ describe('toggle markup and html attribute', () => {
 	it('a Write button with an icon and aria-pressed, in Edit mode only', () => {
 		const bar = editor.slice(editor.indexOf('<div class="be-bar">'), editor.indexOf('<div class="be-body"'));
 		expect(bar).toMatch(/\{#if mode === 'edit'\}\s*<button[\s\S]*?class="write-btn"[\s\S]*?aria-pressed=\{writeMode\}[\s\S]*?<Icon name="write-mode"[^>]*\/> Write<\/button/);
-		expect(bar).toMatch(/<span class="be-tip">[\s\S]*Cmd\/Ctrl\+Shift\+F[\s\S]*<\/span>/);
+		expect(bar).toMatch(/<span class="be-tip">[\s\S]*shortcutLabel\('Mod\+Shift\+F', isMac\)[\s\S]*<\/span>/);
 	});
 
 	it('stamps data-write-mode and clears it on toggle-off and on destroy', () => {

@@ -9,6 +9,7 @@
 	import type { Align, TextSize } from '$lib/blocks.js';
 	import type { TurnInto } from '$lib/editor/doc.js';
 	import type { EditorController, FormatState } from '$lib/editor/setup.js';
+	import { isMacPlatform, shortcutLabel } from '$lib/editor/shortcuts.js';
 
 	let {
 		ctl,
@@ -27,13 +28,17 @@
 		onLink: () => void;
 	} = $props();
 
+	// Only rendered in the browser (it needs the editor controller), so the platform is known.
+	const mac = isMacPlatform();
+	const hint = (name: string, keys: string) => `${name} (${shortcutLabel(keys, mac)})`;
+
 	type Mark = 'bold' | 'italic' | 'underline' | 'strike' | 'code';
 	const MARKS: { mark: Mark; icon: IconName; title: string }[] = [
-		{ mark: 'bold', icon: 'bold', title: 'Bold (Cmd/Ctrl+B)' },
-		{ mark: 'italic', icon: 'italic', title: 'Italic (Cmd/Ctrl+I)' },
-		{ mark: 'underline', icon: 'underline', title: 'Underline (Cmd/Ctrl+U)' },
-		{ mark: 'strike', icon: 'strike', title: 'Strikethrough (Cmd/Ctrl+Shift+S)' },
-		{ mark: 'code', icon: 'code', title: 'Code (Cmd/Ctrl+E)' }
+		{ mark: 'bold', icon: 'bold', title: hint('Bold', 'Mod+B') },
+		{ mark: 'italic', icon: 'italic', title: hint('Italic', 'Mod+I') },
+		{ mark: 'underline', icon: 'underline', title: hint('Underline', 'Mod+U') },
+		{ mark: 'strike', icon: 'strike', title: hint('Strikethrough', 'Mod+Shift+X') },
+		{ mark: 'code', icon: 'code', title: hint('Code', 'Mod+E') }
 	];
 	const TYPES: { to: TurnInto; label: string }[] = [
 		{ to: 'paragraph', label: 'Paragraph' },
@@ -58,9 +63,9 @@
 		{ value: 'xl', label: 'Extra large' }
 	];
 	const ALIGNS: { value: Align; icon: IconName; title: string }[] = [
-		{ value: 'left', icon: 'align-left', title: 'Align left (Cmd/Ctrl+Shift+L)' },
-		{ value: 'center', icon: 'align-center', title: 'Align center (Cmd/Ctrl+Shift+E)' },
-		{ value: 'right', icon: 'align-right', title: 'Align right (Cmd/Ctrl+Shift+R)' }
+		{ value: 'left', icon: 'align-left', title: hint('Align left', 'Mod+Shift+L') },
+		{ value: 'center', icon: 'align-center', title: hint('Align center', 'Mod+Shift+E') },
+		{ value: 'right', icon: 'align-right', title: hint('Align right', 'Mod+Shift+R') }
 	];
 
 	let open = $state<'color' | 'merge' | null>(null);
