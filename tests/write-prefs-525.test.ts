@@ -166,6 +166,22 @@ describe('focus paragraph', () => {
 		expect(dimmed(on(make((d) => NodeSelection.create(d, imgPos))))).toEqual(['a', 'b', 's']);
 	});
 
+	it('a selection across several blocks keeps every one of them lit', () => {
+		const five = pm([para('p1', 'one'), para('p2', 'two'), para('p3', 'three'), para('p4', 'four'), para('p5', 'five')]);
+		const starts: number[] = [];
+		five.forEach((_n, off) => starts.push(off));
+		let s = EditorState.create({ doc: five, plugins: [plugin] });
+		// From inside the second paragraph to inside the fourth: three blocks selected.
+		s = on(s.apply(s.tr.setSelection(TextSelection.create(s.doc, starts[1] + 2, starts[3] + 2))));
+		expect(dimmed(s)).toEqual(['p1', 'p5']);
+		// The same range dragged upwards.
+		s = s.apply(s.tr.setSelection(TextSelection.create(s.doc, starts[3] + 2, starts[1] + 2)));
+		expect(dimmed(s)).toEqual(['p1', 'p5']);
+		// Collapsing it lights only the block holding the cursor again.
+		s = s.apply(s.tr.setSelection(TextSelection.create(s.doc, starts[2] + 2)));
+		expect(dimmed(s)).toEqual(['p1', 'p2', 'p4', 'p5']);
+	});
+
 	it('switching is not an undo step and is a no-op when unchanged', () => {
 		const s = make();
 		const tr = setFocusDimTr(s, true)!;

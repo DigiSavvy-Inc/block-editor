@@ -34,6 +34,7 @@
 		readWriteMode,
 		saveWriteMode
 	} from '$lib/editor/write-mode.js';
+	import { formEnterAction } from '$lib/editor/form-enter.js';
 	import { QUIET_IDLE, isTypingInput, nextQuiet, selBarTop, selBarVisible, type QuietEvent, type QuietState } from '$lib/editor/quiet.js';
 	import WritingMenu from '$lib/components/WritingMenu.svelte';
 	import { DEFAULT_WRITE_PREFS, DRAFT_SERIF_STACK, WORD_COUNT_DEBOUNCE_MS, countWords, docText, loadWritePrefs, saveWritePrefs, wordCountLabel, type WritePrefs } from '$lib/write-prefs.js';
@@ -594,6 +595,20 @@
 		if (menuOpen) quietOn({ kind: 'menu' });
 	});
 	const isQuiet = $derived(quiet.on && mode === 'edit' && !menuOpen);
+
+	// Enter in one of the editor's own fields commits it instead of submitting the host form.
+	// Leaving the field fires its `change` (only when the value changed, as Enter would
+	// outside a form); focus then returns to it.
+	function onRootKey(e: KeyboardEvent) {
+		const act = formEnterAction(e);
+		if (act === 'pass') return;
+		e.preventDefault();
+		if (act !== 'commit') return;
+		const field = e.target as HTMLInputElement;
+		field.blur();
+		field.focus();
+	}
+
 	function onRootFocus(e: FocusEvent) {
 		const t = e.target;
 		if (t instanceof Element && !t.closest('.ProseMirror')) quietOn({ kind: 'control' });
@@ -649,6 +664,7 @@
 	bind:this={rootEl}
 	onmousemove={(e) => quietOn({ kind: 'mouse', x: e.clientX, y: e.clientY })}
 	onfocusin={onRootFocus}
+	onkeydown={onRootKey}
 	role="presentation"
 >
 	<div class="be-bar">
@@ -1885,7 +1901,7 @@
 	.be.serif .be-doc :global(.pm-doc :is(h1, h2, h3)) {
 		font-family: var(--cv-hfont, var(--cv-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif));
 	}
-	/* Focus paragraph: every top-level block but the current one (pm-dim, a decoration). */
+	/* Focus paragraph: every top-level block outside the selection (pm-dim, a decoration). */
 	.be.write .be-doc :global(.pm-doc > *) {
 		transition: opacity 150ms ease;
 	}

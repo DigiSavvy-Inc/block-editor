@@ -261,8 +261,9 @@ function visCondMd(v: Visibility): string | null {
 /** Plain text for markdown with its merge tags kept as typed. */
 const escMdText = (s: string) => s.split(/(\{\{[^{}]*\}\})/g).map((part, i) => (i % 2 ? part : escMd(part))).join('');
 
-/** `root` = the whole document (a table of contents lists its headings). */
-function blockMd(b: Block, root: Block[]): string {
+/** `root` = the whole document (a table of contents lists its headings). With `tocTitle`, a
+ *  table of contents that lists no heading still gives its title (see blocksToMarkdown). */
+function blockMd(b: Block, root: Block[], tocTitle = false): string {
 	switch (b.type) {
 		case 'heading':
 			return `${'#'.repeat(b.level)} ${b.content ? inlineMd(b.content) : escMd(b.text)}`;
@@ -302,24 +303,29 @@ function blockMd(b: Block, root: Block[]): string {
 			const list = tocEntries(root, b.levels)
 				.map((e) => `${'  '.repeat(e.depth)}- [${escMdText(e.text)}](#${e.slug})`)
 				.join('\n');
-			return list && b.title ? `${escMdText(b.title)}\n\n${list}` : list;
+			const title = b.title ? escMdText(b.title) : '';
+			if (!list) return tocTitle ? title : '';
+			return title ? `${title}\n\n${list}` : list;
 		}
 		case 'columns':
-			return b.cells.map((c) => c.map((x) => withVis(x, root)).filter(Boolean).join('\n\n')).filter(Boolean).join('\n\n');
+			return b.cells.map((c) => c.map((x) => withVis(x, root, tocTitle)).filter(Boolean).join('\n\n')).filter(Boolean).join('\n\n');
 		case 'section':
-			return b.blocks.map((x) => withVis(x, root)).filter(Boolean).join('\n\n');
+			return b.blocks.map((x) => withVis(x, root, tocTitle)).filter(Boolean).join('\n\n');
 	}
 }
 
-function withVis(b: Block, root: Block[]): string {
-	const md = blockMd(b, root);
+function withVis(b: Block, root: Block[], tocTitle = false): string {
+	const md = blockMd(b, root, tocTitle);
 	const cond = b.visibility ? visCondMd(b.visibility) : null;
 	return cond && md ? `{{#if ${cond}}}\n\n${md}\n\n{{/if}}` : md;
 }
 
-/** Blocks → markdown for `campaigns.body_md`. */
+/** Blocks → markdown for `campaigns.body_md`. A table of contents that lists no heading
+ *  gives nothing, unless nothing else in the document gives anything either: then it keeps
+ *  its title, so a document holding only a titled table of contents is not exported empty. */
 export function blocksToMarkdown(blocks: Block[]): string {
-	return blocks.map((b) => withVis(b, blocks)).filter((s) => s.trim()).join('\n\n').trim();
+	const md = (tocTitle: boolean) => blocks.map((b) => withVis(b, blocks, tocTitle)).filter((s) => s.trim()).join('\n\n').trim();
+	return md(false) || md(true);
 }
 
 /** #255: a stored template / global header-footer document → the editor's rich shape.

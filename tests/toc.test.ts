@@ -292,6 +292,13 @@ describe('plain text and markdown', () => {
 		expect(md).toBe('- [Inside](#inside)\n\n## Inside');
 		expect(blocksToMarkdown([toc([3], { title: 'Contents' }), h('a', 2, 'One')])).toBe('## One');
 	});
+	it('markdown: a document holding only a table of contents keeps its title', () => {
+		expect(blocksToMarkdown([toc([2], { title: 'On this *page*' })])).toBe('On this \\*page\\*');
+		expect(blocksToMarkdown([toc([2], { title: 'Contents' }), { id: 'p', type: 'paragraph', content: [] } as Block])).toBe('Contents');
+		expect(blocksToMarkdown([{ id: 's', type: 'section', bg: '#fff', padding: 'md', width: 'full', blocks: [toc([2], { title: 'Contents' })] }])).toBe('Contents');
+		expect(blocksToMarkdown([toc([2], { title: 'Contents', visibility: { kind: 'tag', name: 'vip' } })])).toBe('{{#if tag:vip}}\n\nContents\n\n{{/if}}');
+		expect(blocksToMarkdown([toc([2])])).toBe('');
+	});
 	it('markdown import does not create one', () => {
 		expect(markdownToBlocks('- [One](#one)\n\n## One').map((b) => b.type)).toEqual(['list', 'heading']);
 	});

@@ -812,7 +812,7 @@ export function createEditor(mount: HTMLElement, opts: EditorOptions) {
 		setTextColor: (hex: string | null) => run(setTextColor(hex)),
 		turnSelection: (to: TurnInto) => run(turnSelectionInto(to)),
 		clearFormatting: () => run(clearFormatting),
-		/** #525: Write mode's focus paragraph — dim every top-level block but the current one. */
+		/** #525: Write mode's focus paragraph — dim every top-level block outside the selection. */
 		setFocusDim(on: boolean) {
 			const tr = setFocusDimTr(view.state, on);
 			if (tr) view.dispatch(tr);

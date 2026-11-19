@@ -1,19 +1,26 @@
 // #525: Focus paragraph (iA Writer style) for Write mode. While on, every top-level block of
-// the doc except the one holding the selection — the top-level ancestor of
+// the doc except the one holding the cursor — the top-level ancestor of
 // `ctl.blockAtSelection()` — gets the `pm-dim` class through a node decoration (ProseMirror
-// owns the DOM, so the class is never set by hand). Sections, columns and images dim as a
-// whole. The editor switches it on / off with `setFocusDim` (focus, menus, Write mode).
+// owns the DOM, so the class is never set by hand). A selection across several blocks keeps
+// all of them lit, so the writer can read what they selected. Sections, columns and images
+// dim as a whole. The editor switches it on / off with `setFocusDim` (focus, menus, Write mode).
 import { Plugin, PluginKey, type EditorState, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
 export const DIM_CLASS = 'pm-dim';
 export const focusDimKey = new PluginKey<boolean>('focusDim');
 
-/** Index of the top-level block holding the selection (−1 when none, e.g. a doc-end gap). */
-export function activeTopIndex(state: EditorState): number {
-	const { $from } = state.selection;
-	const i = $from.index(0);
-	return i < state.doc.childCount ? i : -1;
+/** First and last index of the top-level blocks the selection touches (one for a collapsed
+ *  cursor), or null when none, e.g. a doc-end gap. */
+export function activeTopRange(state: EditorState): [number, number] | null {
+	const { $from, $to, empty } = state.selection;
+	const count = state.doc.childCount;
+	const first = $from.index(0);
+	if (first >= count) return null;
+	// A range ending between two top-level blocks (a selected image, select all) ends with the
+	// block before that point, not the one after it.
+	const last = !empty && $to.depth === 0 ? $to.index(0) - 1 : $to.index(0);
+	return [first, Math.min(Math.max(last, first), count - 1)];
 }
 
 export function focusDimPlugin() {
@@ -29,10 +36,10 @@ export function focusDimPlugin() {
 		props: {
 			decorations(state) {
 				if (!focusDimKey.getState(state)) return null;
-				const active = activeTopIndex(state);
+				const [first, last] = activeTopRange(state) ?? [-1, -1];
 				const decos: Decoration[] = [];
 				state.doc.forEach((node, offset, index) => {
-					if (index !== active) decos.push(Decoration.node(offset, offset + node.nodeSize, { class: DIM_CLASS }));
+					if (index < first || index > last) decos.push(Decoration.node(offset, offset + node.nodeSize, { class: DIM_CLASS }));
 				});
 				return DecorationSet.create(state.doc, decos);
 			}

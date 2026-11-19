@@ -17,7 +17,7 @@ npm i @digisavvy/block-editor
 Or from a git tag (builds on install):
 
 ```sh
-npm i github:DigiSavvy-Inc/block-editor#v0.3.0
+npm i github:DigiSavvy-Inc/block-editor#v0.4.0
 ```
 
 `svelte` 5 is a peer dependency. The ProseMirror packages and `marked` are installed with it.
@@ -25,6 +25,8 @@ npm i github:DigiSavvy-Inc/block-editor#v0.3.0
 ## Usage in SvelteKit
 
 The editor posts its blocks as JSON in a hidden input, so it drops into an ordinary form.
+Enter in the editor's own fields (the Design panel, the link field) commits the field and
+never submits that form.
 
 ```svelte
 <script lang="ts">
@@ -124,6 +126,11 @@ preview follows the headings as you edit them.
   An entry for a heading with a visibility rule carries the same rule.
 - Plain text and markdown: the title, then one `- Heading` line per entry, indented for
   lower levels (markdown links each line to its anchor).
+- A table of contents that lists no heading renders nothing, title included. The one
+  exception is `blocksToMarkdown` for a document with nothing else in it: it keeps the title.
+- `blocksAreEmpty` counts a table of contents as empty: it only lists headings, and those
+  count on their own. If your host builds a document one block at a time and refuses an
+  empty one, allow a lone table of contents explicitly, for example with `hasTocBlock(blocks)`.
 
 `tocEntries(blocks, levels, { page })` returns the entries (`{ slug, level, text, depth }`)
 the renderers list; `headingSlug(text)` and `hasTocBlock(blocks)` are exported too.
