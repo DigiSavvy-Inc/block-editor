@@ -126,6 +126,11 @@ preview follows the headings as you edit them.
   An entry for a heading with a visibility rule carries the same rule.
 - Plain text and markdown: the title, then one `- Heading` line per entry, indented for
   lower levels (markdown links each line to its anchor).
+- A table of contents that lists no heading renders nothing, title included. The one
+  exception is `blocksToMarkdown` for a document with nothing else in it: it keeps the title.
+- `blocksAreEmpty` counts a table of contents as empty: it only lists headings, and those
+  count on their own. If your host builds a document one block at a time and refuses an
+  empty one, allow a lone table of contents explicitly, for example with `hasTocBlock(blocks)`.
 
 `tocEntries(blocks, levels, { page })` returns the entries (`{ slug, level, text, depth }`)
 the renderers list; `headingSlug(text)` and `hasTocBlock(blocks)` are exported too.
