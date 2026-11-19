@@ -17,7 +17,7 @@ npm i @digisavvy/block-editor
 Or from a git tag (builds on install):
 
 ```sh
-npm i github:DigiSavvy-Inc/block-editor#v0.3.0
+npm i github:DigiSavvy-Inc/block-editor#v0.4.0
 ```
 
 `svelte` 5 is a peer dependency. The ProseMirror packages and `marked` are installed with it.
