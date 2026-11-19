@@ -1885,7 +1885,7 @@
 	.be.serif .be-doc :global(.pm-doc :is(h1, h2, h3)) {
 		font-family: var(--cv-hfont, var(--cv-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif));
 	}
-	/* Focus paragraph: every top-level block but the current one (pm-dim, a decoration). */
+	/* Focus paragraph: every top-level block outside the selection (pm-dim, a decoration). */
 	.be.write .be-doc :global(.pm-doc > *) {
 		transition: opacity 150ms ease;
 	}

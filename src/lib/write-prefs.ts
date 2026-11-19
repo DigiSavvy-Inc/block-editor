@@ -19,7 +19,7 @@ export type DraftFont = 'sans' | 'serif';
 export interface WritePrefs {
 	/** Body face while drafting in Write mode. Default sans (the canvas font). */
 	font: DraftFont;
-	/** Dim every top-level block but the one holding the selection. Default off. */
+	/** Dim every top-level block the selection does not touch. Default off. */
 	focus: boolean;
 }
 
