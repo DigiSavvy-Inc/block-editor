@@ -25,6 +25,8 @@ npm i github:DigiSavvy-Inc/block-editor#v0.3.0
 ## Usage in SvelteKit
 
 The editor posts its blocks as JSON in a hidden input, so it drops into an ordinary form.
+Enter in the editor's own fields (the Design panel, the link field) commits the field and
+never submits that form.
 
 ```svelte
 <script lang="ts">
