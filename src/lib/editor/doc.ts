@@ -17,7 +17,8 @@ export type PMNode = {
 const vis = (a: Record<string, unknown> | undefined) => (a?.visibility as Visibility | null | undefined) ?? undefined;
 const idOf = (a: Record<string, unknown> | undefined) => (typeof a?.id === 'string' ? a.id : crypto.randomUUID());
 
-function inlineFromPM(nodes: PMNode[] | undefined): Inline[] {
+/** Inline node JSON → sanitised runs. */
+export function inlineFromPM(nodes: PMNode[] | undefined): Inline[] {
 	const out: Inline[] = [];
 	for (const n of nodes ?? []) {
 		const marks = n.marks?.map((m) =>
@@ -158,7 +159,8 @@ function marksToPM(marks: InlineMark[] | undefined): PMMark[] | undefined {
 	return marks.map((m) => (m.type === 'link' ? { type: 'link', attrs: { href: m.href } } : m.type === 'textColor' ? { type: 'textColor', attrs: { color: m.color } } : { type: m.type }));
 }
 
-function inlineToPM(nodes: Inline[]): PMNode[] | undefined {
+/** Inline runs → inline node JSON (undefined when empty). */
+export function inlineToPM(nodes: Inline[]): PMNode[] | undefined {
 	const out: PMNode[] = [];
 	for (const n of nodes) {
 		const marks = n.type === 'hardBreak' ? undefined : marksToPM(n.marks);

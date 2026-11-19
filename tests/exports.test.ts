@@ -2,6 +2,7 @@
 // DOM or Svelte: it is what a server or a Cloudflare Worker imports.
 import { describe, expect, it } from 'vitest';
 import * as data from '../src/lib/data';
+import entry from '../src/lib/index.ts?raw';
 
 describe('@digisavvy/block-editor/blocks', () => {
 	it('exports the AVIF conversion helpers (0.2.0)', () => {
@@ -23,5 +24,12 @@ describe('@digisavvy/block-editor/blocks', () => {
 		expect(data.BRAND_SWATCHES.length).toBeGreaterThan(0);
 		expect(data.normalizeHex('ABC')).toBe('#aabbcc');
 		expect(data.autoTextColor('#000000')).toBe('#ffffff');
+	});
+});
+
+describe('@digisavvy/block-editor', () => {
+	it('exports the host action types (0.5.0)', () => {
+		expect(entry).toContain("export type { HostSelection, SelectionAction, SelectionContext, SlashHostAction } from './editor/host-actions.js';");
+		expect(entry).toContain("export type { IconName } from './icons/glyphs.js';");
 	});
 });

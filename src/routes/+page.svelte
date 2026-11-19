@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Demo: the editor with sample blocks, an email / page toggle, an in-memory upload, a
-	// light / dark switch and the live blocks JSON. Nothing here touches the network.
-	import BlockEditor, { type Block, type EmailCanvas, type ImageUpload } from '$lib/index.js';
+	// light / dark switch, sample host actions (#5) and the live blocks JSON. Nothing here
+	// touches the network.
+	import BlockEditor, { type Block, type EmailCanvas, type ImageUpload, type Inline, type SelectionAction, type SelectionContext, type SlashHostAction } from '$lib/index.js';
 	import { renderBlocksEmailHtml, renderPageHtml } from '$lib/data.js';
 	import '$lib/styles.css';
 
@@ -62,6 +63,62 @@
 		);
 	}
 
+	// #5: sample host actions. "Shout" upper-cases the selection at once; "Hold" opens a
+	// small panel (focus moves to its input, the selection stays highlighted); "Stamp" is a
+	// slash entry.
+	const upper = (runs: Inline[]): Inline[] => runs.map((r) => (r.type === 'text' ? { ...r, text: r.text.toUpperCase() } : r));
+	function upperBlock(b: Block): Block {
+		if (b.type === 'paragraph' || b.type === 'quote' || b.type === 'callout' || b.type === 'eyebrow') return { ...b, content: upper(b.content) };
+		if (b.type === 'heading') return { ...b, text: b.text.toUpperCase(), ...(b.content ? { content: upper(b.content) } : {}) };
+		if (b.type === 'list') return { ...b, items: b.items.map(upper) };
+		return b;
+	}
+	const shout: SelectionAction = {
+		id: 'shout',
+		label: 'Shout',
+		icon: 'heading',
+		title: 'Upper-case the selection',
+		shortcut: 'Mod+Shift+U',
+		onSelect(ctx) {
+			const { inline, blocks: sel, partial, text } = ctx.selection;
+			if (inline) ctx.replaceSelection(upper(inline));
+			else if (!partial) ctx.replaceSelection(sel.map(upperBlock));
+			else ctx.replaceSelection([{ id: crypto.randomUUID(), type: 'paragraph', content: [{ type: 'text', text: text.toUpperCase() }] }]);
+		}
+	};
+
+	let hold = $state.raw<{ ctx: SelectionContext; top: number; left: number } | null>(null);
+	let holdText = $state('');
+	const holdAction: SelectionAction = {
+		id: 'hold',
+		label: 'Hold',
+		icon: 'edit',
+		title: 'Replace or insert from a panel',
+		onSelect(ctx) {
+			// The anchor is relative to the editor canvas; the panel is fixed on the page.
+			const c = document.querySelector('.be-canvas')?.getBoundingClientRect();
+			hold = { ctx, top: (c?.top ?? 0) + ctx.anchor.bottom + 8, left: (c?.left ?? 0) + ctx.anchor.left };
+			holdText = ctx.selection.text;
+		}
+	};
+	function holdDone(act: 'replace' | 'insert' | 'cancel') {
+		const ctx = hold?.ctx;
+		hold = null;
+		if (!ctx) return;
+		if (act === 'replace') ctx.replaceSelection([{ type: 'text', text: holdText }]);
+		else if (act === 'insert') ctx.insertAfterSelection([{ id: crypto.randomUUID(), type: 'paragraph', content: [{ type: 'text', text: holdText }] }]);
+		ctx.restoreFocus();
+	}
+
+	const stamp: SlashHostAction = {
+		id: 'stamp',
+		label: 'Stamp',
+		title: 'Insert a sample paragraph',
+		onSelect(ctx) {
+			ctx.replaceSelection([{ id: crypto.randomUUID(), type: 'paragraph', content: [{ type: 'text', text: 'Stamped' }] }]);
+		}
+	};
+
 	$effect(() => {
 		const html = document.documentElement;
 		if (theme === 'system') delete html.dataset.theme;
@@ -105,8 +162,27 @@
 			upload={uploadOn ? upload : undefined}
 			{preview}
 			placeholder="Start writing, or type '/' for blocks"
+			selectionActions={[shout, holdAction]}
+			slashActions={[stamp]}
 		/>
 	{/key}
+
+	{#if hold}
+		<!-- ds-block-editor: the editor's own button and field styles. -->
+		<div class="hold ds-block-editor" role="dialog" aria-label="Hold" tabindex="-1" style="top:{hold.top}px;left:{hold.left}px">
+			<input
+				{@attach (el) => el.focus()}
+				bind:value={holdText}
+				aria-label="Text"
+				onkeydown={(e) => {
+					if (e.key === 'Escape') holdDone('cancel');
+				}}
+			/>
+			<button type="button" onclick={() => holdDone('replace')}>Replace</button>
+			<button type="button" class="secondary" onclick={() => holdDone('insert')}>Insert below</button>
+			<button type="button" class="secondary" onclick={() => holdDone('cancel')}>Cancel</button>
+		</div>
+	{/if}
 
 	<section class="json">
 		<h2>blocks</h2>
@@ -149,6 +225,16 @@
 		align-items: center;
 		gap: 6px;
 		font-size: 14px;
+	}
+	.hold {
+		position: fixed;
+		z-index: 50;
+		display: flex;
+		gap: 6px;
+		padding: 8px;
+		border-radius: 8px;
+		background: var(--surface);
+		box-shadow: 0 0 0 1px var(--border), var(--shadow-m);
 	}
 	.json h2 {
 		font-size: 14px;

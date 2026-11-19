@@ -1,5 +1,6 @@
 // 0.2.0: host props `brandLogos` (the image settings' "Brand logo" quick insert) and
-// `swatches` (the colour palette). DesignPanel is rendered on the server (no DOM needed);
+// `swatches` (the colour palette). 0.5.0: `selectionActions` and `slashActions` (#5; the
+// behaviour is in host-actions.test.ts). DesignPanel is rendered on the server (no DOM needed);
 // the swatch plumbing through the components is read raw, like the other component tests.
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
@@ -11,7 +12,8 @@ const raw = import.meta.glob(
 		'../src/lib/components/BlockEditor.svelte',
 		'../src/lib/components/DesignPanel.svelte',
 		'../src/lib/components/ColorField.svelte',
-		'../src/lib/components/FormatToolbar.svelte'
+		'../src/lib/components/FormatToolbar.svelte',
+		'../src/lib/components/SelectionBubble.svelte'
 	],
 	{ query: '?raw', import: 'default', eager: true }
 ) as Record<string, string>;
@@ -110,5 +112,20 @@ describe('swatches', () => {
 		const pal: Swatch[] = BRAND_SWATCHES;
 		expect(new Set(pal.map((s) => s.key)).size).toBe(pal.length);
 		for (const s of pal) expect(s.hex).toMatch(/^#[0-9a-f]{6}$/);
+	});
+});
+
+describe('selectionActions and slashActions', () => {
+	it('BlockEditor takes both, default [] (nothing changes without them)', () => {
+		const be = script(src('components/BlockEditor.svelte'));
+		expect(be).toContain('selectionActions = []');
+		expect(be).toContain('slashActions = []');
+		expect(script(src('components/SelectionBubble.svelte'))).toContain('actions = []');
+	});
+
+	it('BlockEditor hands the bubble its actions and lists the slash ones in the menu', () => {
+		const be = src('components/BlockEditor.svelte');
+		expect(markup(be)).toMatch(/<SelectionBubble [^>]*actions=\{selectionActions\}/);
+		expect(script(be)).toContain('hostSlashItems(slashActions)');
 	});
 });
