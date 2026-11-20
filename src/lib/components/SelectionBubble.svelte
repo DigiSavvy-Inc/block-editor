@@ -2,12 +2,14 @@
 	// #524: the floating formatting bubble over a text selection (Medium-style). Acts through
 	// the same editor controller + formatState as FormatToolbar (#276); in Write mode it is the
 	// only formatting UI. Buttons keep the editor's selection (mousedown is prevented); Tab
-	// from the doc reaches them, Escape closes the bubble.
+	// from the doc reaches them, Escape closes the bubble. #5: the host app's actions come
+	// first, before the formatting buttons; none (the default) leaves the bubble as it was.
 	import Icon from '$lib/components/Icon.svelte';
 	import type { IconName } from '$lib/icons/glyphs.js';
 	import type { TurnInto } from '$lib/editor/doc.js';
 	import type { EditorController, FormatState } from '$lib/editor/setup.js';
-	import { headingShortcut, isMacPlatform, shortcutLabel } from '$lib/editor/shortcuts.js';
+	import type { SelectionAction } from '$lib/editor/host-actions.js';
+	import { headingShortcut, hostShortcut, isMacPlatform, shortcutLabel } from '$lib/editor/shortcuts.js';
 
 	let {
 		ctl,
@@ -15,7 +17,9 @@
 		top,
 		left,
 		onLink,
-		onClose
+		onClose,
+		actions = [],
+		onAction = () => {}
 	}: {
 		ctl: EditorController;
 		format: FormatState | null;
@@ -26,6 +30,9 @@
 		onLink: () => void;
 		/** Escape: hide the bubble and return focus to the doc. */
 		onClose: () => void;
+		/** #5: the host app's actions, at the start of the bubble. */
+		actions?: SelectionAction[];
+		onAction?: (a: SelectionAction) => void;
 	} = $props();
 
 	// Only rendered in the browser (it needs the editor controller), so the platform is known.
@@ -44,6 +51,13 @@
 		{ to: 'h3', label: 'H3', title: hint('Heading 3', headingShortcut(3, mac)) }
 	];
 
+	/** A host action's tooltip: its title (else label), plus its shortcut when usable. */
+	function actionHint(a: SelectionAction) {
+		const name = a.title ?? a.label;
+		const keys = hostShortcut(a, mac);
+		return keys ? hint(name, keys) : name;
+	}
+
 	const f = $derived(format);
 	const keep = (e: MouseEvent) => e.preventDefault();
 	/** Pressing an active block type again turns it back into a paragraph. */
@@ -58,6 +72,12 @@
 </script>
 
 <div class="be-pop be-selbar" role="toolbar" aria-label="Format selection" tabindex="-1" style="top:{top}px;left:{left}px" onmousedown={keep} onkeydown={onKey}>
+	{#each actions as a (a.id)}
+		<button type="button" class="sb host" title={actionHint(a)} aria-label={a.title ?? a.label} onclick={() => onAction(a)}>
+			{#if a.icon}<Icon name={a.icon} size={16} />{/if}<span>{a.label}</span>
+		</button>
+	{/each}
+	{#if actions.length}<span class="sep" aria-hidden="true"></span>{/if}
 	{#each MARKS as m (m.mark)}
 		{@const on = !!f?.marks.includes(m.mark)}
 		<button type="button" class="sb" class:on aria-pressed={on} title={m.title} aria-label={m.title} disabled={!f?.canMark} onclick={() => ctl.toggleMark(m.mark)}>
@@ -111,6 +131,10 @@
 	}
 	.sb.txt {
 		font-weight: 700;
+	}
+	.sb.host {
+		gap: var(--space-xxs);
+		font-weight: var(--weight-ui-medium);
 	}
 	.sb:hover:not(:disabled),
 	.sb.on {

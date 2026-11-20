@@ -298,6 +298,11 @@
 	background: none;
 	accent-color: var(--color-1);
 }
+/* #5: the selection a host action is open on, while focus is in the host's own UI. */
+.ds-block-editor .be-held-selection {
+	background: var(--color-1-transparent);
+	border-radius: 2px;
+}
 @media (max-width: 768px) {
 	/* ≥ 16px stops iOS Safari zooming into focused fields. */
 	.ds-block-editor :where(input, textarea, select) {

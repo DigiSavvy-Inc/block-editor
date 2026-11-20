@@ -17,7 +17,7 @@ npm i @digisavvy/block-editor
 Or from a git tag (builds on install):
 
 ```sh
-npm i github:DigiSavvy-Inc/block-editor#v0.4.0
+npm i github:DigiSavvy-Inc/block-editor#v0.5.0
 ```
 
 `svelte` 5 is a peer dependency. The ProseMirror packages and `marked` are installed with it.
@@ -84,6 +84,8 @@ Always sanitise on the server: the posted JSON is user input.
 | `upload` | `ImageUpload` | none | Stores an image file. See below. |
 | `brandLogos` | `BrandLogo[]` | `[]` | Logos offered by a "Brand logo" quick insert in the image settings. Empty hides the control. See below. |
 | `swatches` | `Swatch[]` | `BRAND_SWATCHES` | The colour palette of the text colour menu and every colour control in the Design panel. See below. |
+| `selectionActions` | `SelectionAction[]` | `[]` | The host app's own buttons at the start of the selection bubble. See Host actions. |
+| `slashActions` | `SlashHostAction[]` | `[]` | The host app's own entries in the slash menu. See Host actions. |
 
 ## Blocks
 
@@ -190,6 +192,75 @@ default, `BRAND_SWATCHES`, is exported from `@digisavvy/block-editor/blocks`.
 ```
 
 The types are exported from both entry points: `import type { BrandLogo, Swatch } from '@digisavvy/block-editor'`.
+
+## Host actions
+
+The host app can add its own actions to the selection bubble and the slash menu, read what
+is selected and replace it. The editor itself adds none and never talks to a server.
+
+```ts
+type SelectionAction = {
+	id: string;
+	label: string;
+	icon?: IconName; // a name from the editor's own icon set
+	title?: string; // tooltip and accessible name, defaults to label
+	shortcut?: string; // 'Mod+Shift+U': ⌘ on a Mac, Ctrl elsewhere
+	onSelect: (ctx: SelectionContext) => void;
+};
+type SlashHostAction = Omit<SelectionAction, 'shortcut'>;
+```
+
+```svelte
+<script lang="ts">
+	import BlockEditor, { type Block, type SelectionAction } from '@digisavvy/block-editor';
+
+	let blocks = $state<Block[]>([]);
+
+	const shout: SelectionAction = {
+		id: 'shout',
+		label: 'Shout',
+		title: 'Upper-case the selection',
+		shortcut: 'Mod+Shift+U',
+		onSelect(ctx) {
+			const runs = ctx.selection.inline;
+			if (!runs) return ctx.close();
+			ctx.replaceSelection(runs.map((r) => (r.type === 'text' ? { ...r, text: r.text.toUpperCase() } : r)));
+		}
+	};
+</script>
+
+<BlockEditor bind:blocks selectionActions={[shout]} />
+```
+
+- `selectionActions` show as buttons at the start of the selection bubble, before the
+  formatting buttons (icon and label). Tab reaches them; Escape closes the bubble as usual.
+  A `shortcut` runs the action on a non-empty text selection. A shortcut the editor already
+  uses (see Keyboard shortcuts) is ignored, with a console warning (once per action and shortcut).
+- `slashActions` are listed in the slash menu under Actions, matched by their `label`.
+  Picking one removes the typed `/query`, then calls `onSelect` with an empty selection at
+  the caret.
+
+`onSelect` gets a `SelectionContext`:
+
+| Field | |
+| --- | --- |
+| `selection.text` | The selection as plain text (blocks on their own lines, merge tags as `{{tag}}`). |
+| `selection.inline` | The selected `Inline[]` when the selection sits inside one text block, else `null`. |
+| `selection.blocks` | The selected content as sanitised `Block[]`; a block selected in part is cut to the selection. |
+| `selection.partial` | `true` when the selection does not cover whole blocks. |
+| `document` | The whole document as `Block[]`. |
+| `anchor` | `{ top, left, bottom }` of the selection in px, relative to the editor canvas (the element holding the bubble), to place your own popover. |
+| `replaceSelection(content)` | Puts `Inline[]` or `Block[]` in place of the selection, sanitised, as one undo step. Inline runs replace the text and keep the block type; blocks replace the blocks the selection covers whole, else go in at the selection. A section inside a section, or columns inside a column, give their blocks. |
+| `insertAfterSelection(blocks)` | Inserts sanitised blocks after the last selected block (in its section or column, if it is in one), as one undo step. |
+| `restoreFocus()` | Returns focus to the editor with the selection restored. |
+| `close()` | Ends the highlight without moving focus. |
+
+The editor keeps the selection the action opened on and follows it through any edit since,
+so `replaceSelection` and `insertAfterSelection` work after focus has moved to your own UI.
+While the action is open the selection stays highlighted (class `be-held-selection`) and the
+selection bubble is hidden; `restoreFocus`, `close`, a replace, an insert or a click back in
+the editor ends that. Both return `false`, and change nothing, once the selection is gone:
+deleted, already replaced, or another action opened since.
 
 ## Image upload
 

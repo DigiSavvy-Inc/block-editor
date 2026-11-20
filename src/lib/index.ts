@@ -3,6 +3,8 @@
 export { default, default as BlockEditor } from './components/BlockEditor.svelte';
 export type { ImageUpload } from './upload.js';
 export type { BrandLogo, Swatch } from './brand.js';
+export type { HostSelection, SelectionAction, SelectionContext, SlashHostAction } from './editor/host-actions.js';
+export type { IconName } from './icons/glyphs.js';
 export type {
 	Align,
 	Block,

@@ -63,11 +63,14 @@ export interface SelBarInput {
 	focus: boolean;
 	/** Escape dismissed this exact selection. */
 	dismissed: boolean;
+	/** #5: a host action is open on the selection (its own UI is up). */
+	held?: boolean;
 }
 
-/** The bubble shows only for a non-empty text selection in Edit, never over the link editor. */
+/** The bubble shows only for a non-empty text selection in Edit, never over the link editor
+ *  or a host action. */
 export function selBarVisible(s: SelBarInput): boolean {
-	return s.edit && s.textSel && !s.linkEditing && !s.menu && s.focus && !s.dismissed;
+	return s.edit && s.textSel && !s.linkEditing && !s.menu && s.focus && !s.dismissed && !s.held;
 }
 
 /**

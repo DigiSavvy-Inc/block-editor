@@ -35,6 +35,7 @@ import { pasteLinkTr } from './paste-link.js';
 import { focusDimPlugin, setFocusDimTr } from './focus-dim.js';
 import { tocEntriesOf, tocLevelsLabel, tocPlugin } from './toc.js';
 import { headingShortcut, isMacPlatform } from './shortcuts.js';
+import { heldOpen, heldSelectionPlugin, runHostAction, type SelectionContext, type SlashHostAction } from './host-actions.js';
 import { SHOW_ON_LABELS, TEXT_SIZE_PX, clampImageWidthPct, cleanHref, cleanImageUrl, textSizeKind, type Align, type TextSize, type Visibility } from '$lib/blocks.js';
 import { BRAND } from '$lib/brand.js';
 import { isMergeToken } from '$lib/merge-tags.js';
@@ -48,8 +49,9 @@ export type BubbleState = { rect: Rect; active: string[]; href: string | null };
 export type AtomState = { pos: number; type: string; attrs: Record<string, unknown>; rect: Rect };
 /** #473: the link around an empty caret (the link preview popover). */
 export type LinkAtState = { from: number; to: number; href: string; rect: Rect };
-/** #276: `format` = what the fixed formatting toolbar shows for the selection. */
-export type UiState = { menu: MenuState | null; bubble: BubbleState | null; atom: AtomState | null; format: FormatState | null; linkAt: LinkAtState | null };
+/** #276: `format` = what the fixed formatting toolbar shows for the selection. #5: `held` =
+ *  a host action is open on a held selection. */
+export type UiState = { menu: MenuState | null; bubble: BubbleState | null; atom: AtomState | null; format: FormatState | null; linkAt: LinkAtState | null; held: boolean };
 export type { FormatState };
 
 export type EditorOptions = {
@@ -520,7 +522,7 @@ function rectAt(view: EditorView, from: number, to = from): Rect {
 function computeUi(view: EditorView): UiState {
 	const state = view.state;
 	const sel = state.selection;
-	const ui: UiState = { menu: null, bubble: null, atom: null, format: formatState(state), linkAt: null };
+	const ui: UiState = { menu: null, bubble: null, atom: null, format: formatState(state), linkAt: null, held: heldOpen(state) };
 	const dismissed = uiKey.getState(state)?.dismissed ?? null;
 
 	if (sel instanceof NodeSelection && ATOM_TYPES.has(sel.node.type.name)) {
@@ -670,7 +672,8 @@ export function createEditor(mount: HTMLElement, opts: EditorOptions) {
 			uniqueIds(),
 			decorations(opts.placeholder ?? "Start writing, or type '/' for blocks"),
 			tocPlugin(),
-			focusDimPlugin()
+			focusDimPlugin(),
+			heldSelectionPlugin()
 		]
 	});
 	const view: EditorView = new EditorView(mount, {
@@ -816,6 +819,12 @@ export function createEditor(mount: HTMLElement, opts: EditorOptions) {
 		setFocusDim(on: boolean) {
 			const tr = setFocusDimTr(view.state, on);
 			if (tr) view.dispatch(tr);
+		},
+		/** #5: run a host action on the held selection (from the slash menu: the caret, once the
+		 *  typed `/query` at `clear` is removed). `anchor` turns the range's viewport box into
+		 *  canvas coordinates. */
+		hostAction(action: SlashHostAction, anchor: (r: Rect) => SelectionContext['anchor'], clear?: { from: number; to: number }) {
+			runHostAction(view, action, (from, to) => anchor(rectAt(view, from, to)), clear);
 		},
 		insertMergeTag(tag: string) {
 			const node = schema.nodes.merge_tag.create({ tag }, null, view.state.selection.$from.marks());

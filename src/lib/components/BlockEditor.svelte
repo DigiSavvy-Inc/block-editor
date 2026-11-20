@@ -21,8 +21,10 @@
 	import { cropImageToBlob, cropSource, type FocalPoint, type ImageRatio } from '$lib/image-crop.js';
 	import { blocksToDoc, docToBlocks, type TurnInto } from '$lib/editor/doc.js';
 	import type { EditorController, UiState, SlashAction, BlockInfo } from '$lib/editor/setup.js';
+	import type { SelectionAction, SlashHostAction } from '$lib/editor/host-actions.js';
 	import { canMoveBlock, moveTitle } from '$lib/editor/move.js';
-	import { isMacPlatform, shortcutLabel } from '$lib/editor/shortcuts.js';
+	import { hostShortcut, isMacPlatform, shortcutLabel, shortcutMatches } from '$lib/editor/shortcuts.js';
+	import { hostSlashItems, menuMatches } from '$lib/editor/menu.js';
 	import { hrefHasMergeTag, shortHref } from '$lib/editor/link-range.js';
 	import { prepareImageForUpload } from '$lib/image-convert.js';
 	import {
@@ -42,7 +44,8 @@
 	import { BRAND_SWATCHES, type BrandLogo, type Swatch } from '$lib/brand.js';
 
 	type MergeTag = { tag: string; desc: string };
-	type Item = { id: string; label: string; hint: string; icon: IconName; keywords: string; action: SlashAction };
+	// #5: a host slash entry may have no icon.
+	type Item = { id: string; label: string; hint: string; icon?: IconName; keywords: string; action: SlashAction | { kind: 'host'; host: SlashHostAction } };
 
 	let {
 		blocks = $bindable<Block[]>([]),
@@ -57,7 +60,9 @@
 		onready,
 		upload,
 		brandLogos = [],
-		swatches = BRAND_SWATCHES
+		swatches = BRAND_SWATCHES,
+		selectionActions = [],
+		slashActions = []
 	}: {
 		blocks?: Block[];
 		/** #270: the template's email canvas; set (even `{}`) to edit it in the Design
@@ -82,6 +87,11 @@
 		/** The colour swatches of the text colour menu and the Design panel's colour
 		 *  controls. Defaults to BRAND_SWATCHES. */
 		swatches?: Swatch[];
+		/** #5: the host app's actions at the start of the selection bubble. Empty (the
+		 *  default) leaves the bubble as it is. */
+		selectionActions?: SelectionAction[];
+		/** #5: the host app's actions in the slash menu, in their own group. */
+		slashActions?: SlashHostAction[];
 	} = $props();
 	const isPage = $derived(target === 'page');
 
@@ -89,7 +99,7 @@
 	let canvasEl = $state<HTMLDivElement | undefined>();
 	let ctl = $state<EditorController | null>(null);
 	let loadError = $state('');
-	let ui = $state<UiState>({ menu: null, bubble: null, atom: null, format: null, linkAt: null });
+	let ui = $state<UiState>({ menu: null, bubble: null, atom: null, format: null, linkAt: null, held: false });
 	let menuIndex = $state(0);
 	let hasFocus = $state(false);
 	let handle = $state<{ pos: number; top: number; left: number; info: BlockInfo } | null>(null);
@@ -148,12 +158,15 @@
 		mergeList.map((t) => ({ id: `m:${t.inner}`, label: `{{${t.inner}}}`, hint: t.desc, icon: 'merge-tag', keywords: `merge tag ${t.inner} ${t.desc}`, action: { kind: 'merge', tag: t.inner } }))
 	);
 
+	// #5: the host's slash entries, matched by label only.
+	const hostItems = $derived<Item[]>(hostSlashItems(slashActions));
+
 	const filtered = $derived.by<Item[]>(() => {
 		const m = ui.menu;
 		if (!m) return [];
 		const q = m.query.trim().toLowerCase();
-		const pool = m.kind === 'slash' ? [...blockItems, ...mergeItems] : mergeItems;
-		const hits = pool.filter((i) => !q || q.split(/\s+/).every((w) => `${i.label} ${i.keywords}`.toLowerCase().includes(w)));
+		const pool = m.kind === 'slash' ? [...blockItems, ...hostItems, ...mergeItems] : mergeItems;
+		const hits = pool.filter((i) => menuMatches(i, q));
 		// `{{field:anything}}` typed in full: offer it even if it isn't in the list.
 		if (m.kind === 'merge' && q && isMergeToken(m.query.trim()) && !hits.some((h) => h.action.kind === 'merge' && h.action.tag === m.query.trim())) {
 			hits.unshift({ id: 'm:typed', label: `{{${m.query.trim()}}}`, hint: 'Insert this tag', icon: 'merge-tag', keywords: '', action: { kind: 'merge', tag: m.query.trim() } });
@@ -194,7 +207,34 @@
 	function pick(item: Item | undefined) {
 		const m = ui.menu;
 		if (!item || !m || !ctl) return;
-		ctl.applyMenu(item.action, m.from, m.to);
+		if (item.action.kind === 'host') runHostAction(item.action.host, { from: m.from, to: m.to });
+		else ctl.applyMenu(item.action, m.from, m.to);
+	}
+
+	// #5: a host action gets the held selection, the document and where to anchor its own UI
+	// (the canvas coordinates the bubble uses). From the slash menu the typed `/query` goes first.
+	function runHostAction(a: SelectionAction | SlashHostAction, clear?: { from: number; to: number }) {
+		ctl?.hostAction(
+			a,
+			(r) => {
+				const p = rel(r);
+				return { top: p.top, left: p.left, bottom: p.bottom };
+			},
+			clear
+		);
+	}
+
+	/** A host action's shortcut on a non-empty text selection; true = handled. */
+	function hostShortcutKey(e: KeyboardEvent): boolean {
+		if (!selectionActions.length || !ui.format?.textSel) return false;
+		const a = selectionActions.find((x) => {
+			const keys = hostShortcut(x, isMac);
+			return !!keys && shortcutMatches(e, keys, isMac);
+		});
+		if (!a) return false;
+		e.preventDefault();
+		runHostAction(a);
+		return true;
 	}
 
 	// #523: Escapes used to close this editor's own popovers, so Write mode doesn't also exit
@@ -203,6 +243,7 @@
 	function onKey(e: KeyboardEvent): boolean {
 		// #524: Tab leaves the canvas (or reaches the selection bubble): the chrome comes back.
 		if (e.key === 'Tab' && !ui.menu) quietOn({ kind: 'tab' });
+		if (hostShortcutKey(e)) return true;
 		if (ui.menu && filtered.length) {
 			if (e.key === 'ArrowDown') menuIndex = (menuIndex + 1) % filtered.length;
 			else if (e.key === 'ArrowUp') menuIndex = (menuIndex - 1 + filtered.length) % filtered.length;
@@ -625,11 +666,13 @@
 			linkEditing: linkDraft !== null,
 			menu: !!ui.menu,
 			focus: hasFocus,
-			dismissed: selKey !== null && selKey === selDismissed
+			dismissed: selKey !== null && selKey === selDismissed,
+			held: ui.held
 		})
 	);
 	const SEL_BAR_H = 38;
-	const SEL_BAR_W = 340;
+	// #5: host actions widen the bubble (a rough width per button: icon, label, padding).
+	const SEL_BAR_W = $derived(340 + selectionActions.reduce((w, a) => w + 24 + a.label.length * 7 + (a.icon ? 20 : 0), selectionActions.length ? 6 : 0));
 	const selBarPos = $derived.by(() => {
 		if (!selBarShown || !ui.bubble) return null;
 		const p = rel(ui.bubble.rect);
@@ -726,7 +769,7 @@
 
 		<!-- #524: right after the doc in DOM order, so Tab from the text reaches it. -->
 		{#if selBarPos && ctl}
-			<SelectionBubble {ctl} format={ui.format} top={selBarPos.top} left={selBarPos.left} onLink={openLinkEditor} onClose={closeSelBar} />
+			<SelectionBubble {ctl} format={ui.format} top={selBarPos.top} left={selBarPos.left} onLink={openLinkEditor} onClose={closeSelBar} actions={selectionActions} onAction={(a) => runHostAction(a)} />
 		{/if}
 		{#if writeOn && ctl}<p class="be-words">{wordCountLabel(wordCount)}</p>{/if}
 
@@ -826,6 +869,9 @@
 		{#if ui.menu && menuPos && filtered.length && hasFocus}
 			<ul class="be-pop be-menu" role="listbox" aria-label={ui.menu.kind === 'slash' ? 'Insert a block' : 'Insert a merge tag'} style="top:{menuPos.bottom + 6}px;left:{Math.min(menuPos.left, Math.max(0, menuPos.width - 300))}px">
 				{#each filtered as item, i (item.id)}
+					{#if item.action.kind === 'host' && filtered[i - 1]?.action.kind !== 'host'}
+						<li class="mi-group" aria-hidden="true">Actions</li>
+					{/if}
 					<li>
 						<button
 							type="button"
@@ -838,7 +884,7 @@
 							}}
 							onmouseenter={() => (menuIndex = i)}
 						>
-							<Icon name={item.icon} size={16} />
+							{#if item.icon}<Icon name={item.icon} size={16} />{:else}<span aria-hidden="true"></span>{/if}
 							<span class="mi-label">{item.label}</span>
 							<span class="mi-hint">{item.hint}</span>
 						</button>
@@ -1567,6 +1613,14 @@
 	.be-menu button.active {
 		background: var(--bg);
 		filter: none;
+	}
+	.mi-group {
+		margin-top: var(--space-xxs);
+		padding: var(--space-xxs) var(--space-xs);
+		border-top: var(--border-s) solid var(--border);
+		color: var(--muted);
+		font-size: var(--size-xs);
+		line-height: var(--line-xs);
 	}
 	.mi-label {
 		font-weight: var(--weight-ui-medium);
